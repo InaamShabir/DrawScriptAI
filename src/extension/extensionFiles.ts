@@ -844,7 +844,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
-        const wrapped = DRAWSCRIPT_SYSTEM_PROMPT + "\\\\n\\\\nStudent Question: " +
+        const wrapped = DRAWSCRIPT_SYSTEM_PROMPT + "\\n\\nStudent Question: " +
           (currentVal.trim() || "Explain the Pythagorean theorem visually.");
         composer.focus();
 
