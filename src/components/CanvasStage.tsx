@@ -222,6 +222,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     }
     if (pointersRef.current.size === 0) {
       setIsDragging(false);
+      engineRef.current?.syncSnapshot();
     }
   };
 
