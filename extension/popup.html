@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DrawScript 3D Bridge</title>
+  <style>
+    body {
+      margin: 0;
+      width: 320px;
+      padding: 16px;
+      background: #0b1120;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    h1 { font-size: 15px; margin: 0 0 4px; }
+    p { font-size: 12px; color: #94a3b8; margin: 0 0 14px; line-height: 1.45; }
+    label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid #1e293b; }
+    .field { margin-top: 12px; }
+    .field span { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
+    input[type="text"] {
+      width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid #334155; background: #0f172a; color: #f8fafc; font-size: 12px;
+    }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    button {
+      padding: 8px 10px; border-radius: 7px; border: 1px solid #334155;
+      background: #1e293b; color: #f8fafc; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    button.primary { background: #0284c7; border-color: #0ea5e9; }
+    .note { margin-top: 10px; font-size: 11px; color: #38bdf8; min-height: 15px; }
+  </style>
+</head>
+<body>
+  <h1>DrawScript 3D Bridge</h1>
+  <p>Reads DrawScript commands directly from your ChatGPT or Claude page—works on Free &amp; Plus accounts.</p>
+
+  <label>
+    <span>Auto-play new AI replies</span>
+    <input type="checkbox" id="autoPlay" />
+  </label>
+  <label>
+    <span>Voice narration (TTS)</span>
+    <input type="checkbox" id="ttsEnabled" checked />
+  </label>
+
+  <div class="field">
+    <span>DrawScript Studio App URL</span>
+    <input type="text" id="appUrl" />
+  </div>
+
+  <div class="actions">
+    <button id="copyPrompt">Copy Prompt</button>
+    <button id="openStudio" class="primary">Open Studio</button>
+  </div>
+  <div id="note" class="note"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
