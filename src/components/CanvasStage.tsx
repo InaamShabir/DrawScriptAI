@@ -40,6 +40,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchDistRef = useRef<number | null>(null);
   const pinchMidRef = useRef<{ x: number; y: number } | null>(null);
+  // Coalesce high-frequency pointer events into one canvas render per animation frame.
+  const orbitDeltaRef = useRef({ x: 0, y: 0 });
+  const orbitFrameRef = useRef<number | null>(null);
 
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [speed, setSpeed] = useState(1);
@@ -80,6 +83,9 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     engine.play(script, { instant: true });
 
     return () => {
+      if (orbitFrameRef.current !== null) cancelAnimationFrame(orbitFrameRef.current);
+      orbitFrameRef.current = null;
+      orbitDeltaRef.current = { x: 0, y: 0 };
       engine.stop();
       ro.disconnect();
       window.removeEventListener('resize', handleResize);
@@ -182,7 +188,16 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     if (pointersRef.current.size === 1) {
       const dx = next.x - prev.x;
       const dy = next.y - prev.y;
-      engineRef.current.orbitBy(dx, dy);
+      orbitDeltaRef.current.x += dx;
+      orbitDeltaRef.current.y += dy;
+      if (orbitFrameRef.current === null) {
+        orbitFrameRef.current = requestAnimationFrame(() => {
+          orbitFrameRef.current = null;
+          const delta = orbitDeltaRef.current;
+          orbitDeltaRef.current = { x: 0, y: 0 };
+          engineRef.current?.orbitBy(delta.x, delta.y);
+        });
+      }
     } else if (pointersRef.current.size === 2) {
       const [a, b] = Array.from(pointersRef.current.values());
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
