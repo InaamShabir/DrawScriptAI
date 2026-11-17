@@ -800,82 +800,103 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Inject "Wrap with DrawScript Prompt" helper near ChatGPT / Claude prompt box
   function ensureComposerHelper() {
-    const composer =
-      document.querySelector("#prompt-textarea") ||
-      document.querySelector('div[contenteditable="true"].ProseMirror') ||
-      document.querySelector('[contenteditable="true"][role="textbox"]') ||
-      document.querySelector("textarea");
-    if (!composer || !composer.parentElement) return;
+    // Keep our control outside ChatGPT/Claude's framework-owned DOM. Injecting
+    // siblings beside the composer can upset its DOM reconciliation/runtime.
+    let host = document.getElementById("ds3d-composer-helper-host");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "ds3d-composer-helper-host";
+      host.style.cssText = "position:fixed;right:24px;bottom:104px;z-index:2147483646;";
+      const shadow = host.attachShadow({ mode: "open" });
+      shadow.innerHTML = `
+        <style>
+          button {
+            appearance:none;border:1px solid #0284c7;border-radius:9px;
+            background:#0369a1;color:#fff;padding:9px 13px;
+            font:600 12px/1.2 system-ui,sans-serif;cursor:pointer;
+            box-shadow:0 4px 16px #0005;
+          }
+          button:hover { background:#0284c7; }
+          button:focus-visible { outline:2px solid #7dd3fc;outline-offset:3px; }
+        </style>
+        <button type="button">+ Wrap DrawScript Prompt</button>
+      `;
+      const button = shadow.querySelector("button");
+      button.addEventListener("click", () => {
+        const composer =
+          document.querySelector("#prompt-textarea") ||
+          document.querySelector('[contenteditable="true"][data-lexical-editor="true"]') ||
+          document.querySelector('div[contenteditable="true"].ProseMirror') ||
+          document.querySelector('[contenteditable="true"][role="textbox"]') ||
+          document.querySelector("textarea");
 
-    // Chat sites frequently replace the composer node during rerenders. Reuse
-    // the helper only while it is attached to the current composer container.
-    const existing = document.querySelector(".ds3d-composer-btn");
-    if (existing && existing.parentElement === composer.parentElement) return;
-    if (existing) existing.remove();
+        if (!composer || !composer.isConnected) {
+          button.textContent = "Chat input not found";
+          return;
+        }
 
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "ds3d-composer-btn";
-    btn.textContent = "+ Wrap DrawScript Prompt";
-    btn.title = "Prepends the DrawScript 3D command grammar above your question";
+        const isTextarea = composer.tagName === "TEXTAREA";
+        const currentVal = isTextarea
+          ? composer.value
+          : (composer.innerText || composer.textContent || "");
+        if (currentVal.includes("DrawScript 3D")) {
+          button.textContent = "Prompt already added";
+          return;
+        }
 
-    btn.addEventListener("click", () => {
-      // Resolve the live editor at click time because chat apps replace composer nodes.
-      const liveComposer =
-        document.querySelector("#prompt-textarea") ||
-        document.querySelector('div[contenteditable="true"].ProseMirror') ||
-        document.querySelector('[contenteditable="true"][role="textbox"]') ||
-        document.querySelector("textarea");
-      if (!liveComposer) { btn.textContent = "Chat input not found"; return; }
+        const wrapped = DRAWSCRIPT_SYSTEM_PROMPT + "\\\\n\\\\nStudent Question: " +
+          (currentVal.trim() || "Explain the Pythagorean theorem visually.");
+        composer.focus();
 
-      const isTextarea = liveComposer.tagName === "TEXTAREA";
-      const currentVal = isTextarea
-        ? liveComposer.value
-        : (liveComposer.innerText || liveComposer.textContent || "");
-      if (currentVal.includes("DrawScript 3D")) {
-        btn.textContent = "DrawScript Prompt Already Added";
-        return;
-      }
-
-      const wrapped = DRAWSCRIPT_SYSTEM_PROMPT + "\\n\\nStudent Question: " +
-        (currentVal.trim() || "Explain the Pythagorean theorem visually.");
-
-      liveComposer.focus();
-      if (isTextarea) {
-        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-        if (setter) setter.call(liveComposer, wrapped);
-        else liveComposer.value = wrapped;
-        liveComposer.dispatchEvent(new InputEvent("input", {
-          bubbles: true, inputType: "insertText", data: wrapped
-        }));
-        liveComposer.dispatchEvent(new Event("change", { bubbles: true }));
-      } else {
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(liveComposer);
-        if (selection) { selection.removeAllRanges(); selection.addRange(range); }
-
-        // Prefer the native editing transaction used by React/ProseMirror.
-        let inserted = false;
-        try { inserted = document.execCommand("insertText", false, wrapped); }
-        catch { inserted = false; }
-        const resultingText = liveComposer.innerText || liveComposer.textContent || "";
-        if (!inserted || !resultingText.includes("Student Question:")) {
-          const fallbackRange = document.createRange();
-          fallbackRange.selectNodeContents(liveComposer);
-          fallbackRange.deleteContents();
-          fallbackRange.insertNode(document.createTextNode(wrapped));
-          fallbackRange.collapse(false);
-          if (selection) { selection.removeAllRanges(); selection.addRange(fallbackRange); }
-          liveComposer.dispatchEvent(new InputEvent("input", {
+        if (isTextarea) {
+          const setter = Object.getOwnPropertyDescriptor(
+            HTMLTextAreaElement.prototype, "value"
+          )?.set;
+          if (setter) setter.call(composer, wrapped);
+          else composer.value = wrapped;
+          composer.dispatchEvent(new InputEvent("input", {
             bubbles: true, inputType: "insertText", data: wrapped
           }));
-        }
-      }
-      btn.textContent = "DrawScript Prompt Added";
-    });;
+          composer.dispatchEvent(new Event("change", { bubbles: true }));
+        } else {
+          // Use the editor's native insertion command so its framework state
+          // receives a proper editing transaction. Never mutate its DOM with
+          // Range.insertNode: that leaves React/ProseMirror state out of sync.
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(composer);
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
 
-    composer.parentElement.insertBefore(btn, composer);
+          let inserted = false;
+          try {
+            inserted = document.execCommand("insertText", false, wrapped);
+          } catch {
+            inserted = false;
+          }
+          const updatedText = composer.innerText || composer.textContent || "";
+          if (!inserted && !updatedText.includes("Student Question:")) {
+            button.textContent = "Insertion blocked — copying prompt";
+            if (navigator.clipboard?.writeText) {
+              navigator.clipboard.writeText(wrapped).then(() => {
+                button.textContent = "Prompt copied — paste into chat";
+              }).catch(() => {
+                button.textContent = "Copy blocked — use app prompt";
+              });
+            } else {
+              button.textContent = "Insertion blocked — use app prompt";
+            }
+            return;
+          }
+        }
+
+        button.textContent = "DrawScript Prompt Added";
+        setTimeout(() => { button.textContent = "+ Wrap DrawScript Prompt"; }, 2200);
+      });
+      document.documentElement.appendChild(host);
+    }
   }
 
   function scanPage() {
