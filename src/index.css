@@ -45,3 +45,69 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+
+/* DrawScript product shell */
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  min-width: 320px;
+  background: #070b14;
+}
+
+body {
+  min-width: 320px;
+  background:
+    radial-gradient(ellipse at 12% -8%, rgba(14, 116, 144, 0.18), transparent 34rem),
+    radial-gradient(ellipse at 92% 12%, rgba(79, 70, 229, 0.12), transparent 30rem),
+    #070b14;
+}
+
+.app-shell {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(15, 23, 42, 0.42), transparent 52rem),
+    transparent;
+}
+
+.app-header {
+  background: rgba(7, 11, 20, 0.82);
+}
+
+.brand-mark {
+  letter-spacing: -0.055em;
+  background: linear-gradient(110deg, #fff 15%, #bae6fd 62%, #818cf8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+button, a, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible, a:focus-visible, textarea:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.85);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button {
+    transition-duration: 160ms;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-rail {
+    max-width: 48vw;
+  }
+}
