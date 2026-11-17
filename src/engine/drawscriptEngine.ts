@@ -395,6 +395,7 @@ export class DrawScriptEngine {
   private statusMessage = 'Ready · 3D orthographic world';
   private errorMessage: string | null = null;
   private onUpdate?: (snapshot: EngineSnapshot) => void;
+  private lastOrbitUiUpdate = 0;
 
   private readonly MIN_ZOOM = 0.05;
   private readonly MAX_ZOOM = 20;
@@ -510,6 +511,16 @@ export class DrawScriptEngine {
       this.MAX_PITCH
     );
     this.renderScene();
+    // Keep React's HUD updates below the render rate while preserving full-rate canvas redraws.
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.lastOrbitUiUpdate >= 100) {
+      this.lastOrbitUiUpdate = now;
+      this.emitUpdate();
+    }
+  }
+
+  public syncSnapshot() {
+    this.lastOrbitUiUpdate = typeof performance !== 'undefined' ? performance.now() : Date.now();
     this.emitUpdate();
   }
 
