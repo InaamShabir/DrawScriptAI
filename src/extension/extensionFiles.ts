@@ -820,56 +820,60 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     btn.title = "Prepends the DrawScript 3D command grammar above your question";
 
     btn.addEventListener("click", () => {
-      const isTextarea = composer.tagName === "TEXTAREA";
-      const currentVal = isTextarea ? composer.value : (composer.innerText || composer.textContent || "");
+      // Resolve the live editor at click time because chat apps replace composer nodes.
+      const liveComposer =
+        document.querySelector("#prompt-textarea") ||
+        document.querySelector('div[contenteditable="true"].ProseMirror') ||
+        document.querySelector('[contenteditable="true"][role="textbox"]') ||
+        document.querySelector("textarea");
+      if (!liveComposer) { btn.textContent = "Chat input not found"; return; }
+
+      const isTextarea = liveComposer.tagName === "TEXTAREA";
+      const currentVal = isTextarea
+        ? liveComposer.value
+        : (liveComposer.innerText || liveComposer.textContent || "");
       if (currentVal.includes("DrawScript 3D")) {
-        btn.textContent = "DrawScript Prompt Added";
+        btn.textContent = "DrawScript Prompt Already Added";
         return;
       }
 
       const wrapped = DRAWSCRIPT_SYSTEM_PROMPT + "\\n\\nStudent Question: " +
         (currentVal.trim() || "Explain the Pythagorean theorem visually.");
 
+      liveComposer.focus();
       if (isTextarea) {
         const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-        if (setter) setter.call(composer, wrapped);
-        else composer.value = wrapped;
-        composer.dispatchEvent(new Event("input", { bubbles: true }));
-        composer.dispatchEvent(new Event("change", { bubbles: true }));
+        if (setter) setter.call(liveComposer, wrapped);
+        else liveComposer.value = wrapped;
+        liveComposer.dispatchEvent(new InputEvent("input", {
+          bubbles: true, inputType: "insertText", data: wrapped
+        }));
+        liveComposer.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
-        composer.focus();
         const selection = window.getSelection();
         const range = document.createRange();
-        range.selectNodeContents(composer);
-        if (selection) {
-          selection.removeAllRanges();
-          selection.addRange(range);
-        }
+        range.selectNodeContents(liveComposer);
+        if (selection) { selection.removeAllRanges(); selection.addRange(range); }
 
-        // execCommand keeps React/ProseMirror/Slate editors' internal state in
-        // sync. Fall back to a Range insertion on browsers where it is disabled.
+        // Prefer the native editing transaction used by React/ProseMirror.
         let inserted = false;
-        try {
-          inserted = document.execCommand("insertText", false, wrapped);
-        } catch {
-          inserted = false;
-        }
-        if (!inserted || !(composer.innerText || "").includes("Student Question:")) {
+        try { inserted = document.execCommand("insertText", false, wrapped); }
+        catch { inserted = false; }
+        const resultingText = liveComposer.innerText || liveComposer.textContent || "";
+        if (!inserted || !resultingText.includes("Student Question:")) {
           const fallbackRange = document.createRange();
-          fallbackRange.selectNodeContents(composer);
+          fallbackRange.selectNodeContents(liveComposer);
           fallbackRange.deleteContents();
           fallbackRange.insertNode(document.createTextNode(wrapped));
           fallbackRange.collapse(false);
+          if (selection) { selection.removeAllRanges(); selection.addRange(fallbackRange); }
+          liveComposer.dispatchEvent(new InputEvent("input", {
+            bubbles: true, inputType: "insertText", data: wrapped
+          }));
         }
-        composer.dispatchEvent(new InputEvent("input", {
-          bubbles: true,
-          inputType: "insertText",
-          data: wrapped
-        }));
       }
-
       btn.textContent = "DrawScript Prompt Added";
-    });
+    });;
 
     composer.parentElement.insertBefore(btn, composer);
   }
