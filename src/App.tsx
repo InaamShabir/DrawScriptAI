@@ -95,10 +95,10 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0B1120] text-slate-100">
+    <div className="app-shell min-h-screen flex flex-col text-slate-100">
       {/* Three-Zone Top Bar Contract */}
-      <header className="sticky top-0 z-30 bg-[#0B1120]/95 backdrop-blur border-b border-slate-800">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-8">
+      <header className="app-header sticky top-0 z-30 backdrop-blur-xl border-b border-white/[0.07]">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-7 h-[76px] flex items-center justify-between gap-6">
           {/* Zone 1: Brand Wordmark */}
           <a
             href="#top"
@@ -106,7 +106,7 @@ export default function App() {
               e.preventDefault();
               setActiveTab('canvas');
             }}
-            className="text-lg font-display font-bold tracking-tight text-white whitespace-nowrap shrink-0"
+            className="brand-mark text-xl font-display font-bold tracking-tight text-white whitespace-nowrap shrink-0"
           >
             DrawScript
           </a>
@@ -114,7 +114,7 @@ export default function App() {
           {/* Zone 2: Clean Single-Line Nav Links */}
           <nav
             aria-label="Primary"
-            className="flex items-center gap-5 sm:gap-7 overflow-x-auto"
+            className="flex items-center gap-1.5 overflow-x-auto nav-rail"
           >
             {navItems.map((item) => {
               const active = activeTab === item.id;
@@ -123,7 +123,7 @@ export default function App() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`py-5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                     active
                       ? 'border-sky-400 text-white'
                       : 'border-transparent text-slate-400 hover:text-slate-100'
@@ -188,8 +188,8 @@ export default function App() {
       </main>
 
       {/* Quiet Footer */}
-      <footer className="border-t border-slate-800/80 py-4 px-4 sm:px-6">
-        <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
+      <footer className="border-t border-white/[0.07] py-5 px-4 sm:px-7">
+        <div className="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
           <span>DrawScript 3D · Open-source visual lesson engine &amp; Manifest V3 ChatGPT/Claude bridge</span>
           <div className="flex items-center gap-4">
             <button
