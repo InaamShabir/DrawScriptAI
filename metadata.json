@@ -1,0 +1,6 @@
+{
+  "name": "DrawScript 3D & Chrome Extension Studio",
+  "description": "Interactive 3D educational drawing engine and Manifest V3 Chrome Extension builder that extracts DrawScript commands from ChatGPT and Claude responses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

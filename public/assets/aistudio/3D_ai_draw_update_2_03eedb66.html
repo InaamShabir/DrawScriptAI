@@ -1,0 +1,7613 @@
+<!--We added the cone and cylinder in it-->
+<!doctype html>
+<html lang="en">
+<head>
+
+<meta charset="utf-8">
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,viewport-fit=cover"
+>
+<title>AI Draw Narrator 3D</title>
+
+<style>
+
+*{
+  box-sizing:border-box;
+}
+
+html,
+body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#000;
+}
+
+body{
+  font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+}
+
+
+/* ============================================================
+   OPEN COMPOSER
+   ============================================================ */
+
+#openComposer{
+  position:fixed;
+  z-index:50;
+
+  top:18px;
+  left:18px;
+
+  padding:10px 18px;
+
+  border:2px solid #222;
+  border-radius:22px;
+
+  background:white;
+  color:#111;
+
+  font-weight:800;
+  cursor:pointer;
+
+  box-shadow:0 6px 25px rgba(0,0,0,.18);
+}
+
+#openComposer:active{
+  transform:scale(.95);
+}
+
+
+/* ============================================================
+   CANVAS
+   ============================================================ */
+
+#canvas{
+  position:fixed;
+  inset:0;
+
+  width:100vw;
+  height:100vh;
+
+  display:block;
+
+  background:#000;
+
+  touch-action:none;
+
+  cursor:grab;
+}
+
+#canvas.dragging{
+  cursor:grabbing;
+}
+
+
+/* ============================================================
+   COMPOSER
+   ============================================================ */
+
+#composer{
+  position:fixed;
+  z-index:50;
+
+  top:18px;
+  left:5vw;
+  right:5vw;
+
+  display:flex;
+  align-items:flex-end;
+
+  gap:10px;
+  padding:10px;
+
+  background:rgba(255,255,255,.94);
+
+  border:12px solid rgba(0,0,0,.25);
+  border-radius:6px;
+
+  box-shadow:0 6px 25px rgba(0,0,0,.18);
+}
+
+#input{
+  flex:1;
+  min-width:0;
+
+  min-height:52px;
+  max-height:30vh;
+
+  resize:none;
+
+  padding:10px 12px;
+
+  background:white;
+  color:#111;
+
+  border:2px solid #222;
+  border-radius:4px;
+
+  outline:none;
+
+  font:15px/1.4 monospace;
+}
+
+#send{
+  height:52px;
+
+  padding:0 20px;
+
+  border:2px solid #222;
+  border-radius:26px;
+
+  background:white;
+  color:#111;
+
+  font-weight:800;
+
+  cursor:pointer;
+}
+
+#send:active{
+  transform:scale(.97);
+}
+
+#minimizeComposer{
+  height:52px;
+  width:52px;
+
+  flex:none;
+
+  border:2px solid #222;
+  border-radius:50%;
+
+  background:white;
+  color:#111;
+
+  font-size:20px;
+  font-weight:800;
+
+  cursor:pointer;
+}
+
+#minimizeComposer:active{
+  transform:scale(.95);
+}
+
+
+/* ============================================================
+   HINT
+   ============================================================ */
+
+#hint{
+  position:fixed;
+
+  z-index:2;
+
+  left:50%;
+  top:50%;
+
+  transform:translate(-50%,-50%);
+
+  color:rgba(255,255,255,.18);
+
+  font:14px monospace;
+
+  text-align:center;
+
+  pointer-events:none;
+}
+
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+#status{
+  position:fixed;
+
+  z-index:60;
+
+  left:12px;
+  bottom:12px;
+
+  max-width:calc(100vw - 24px);
+
+  padding:5px 8px;
+
+  border-radius:7px;
+
+  background:rgba(0,0,0,.65);
+
+  color:white;
+
+  font:11px monospace;
+
+  pointer-events:none;
+
+  opacity:.8;
+}
+
+
+/* ============================================================
+   STOP
+   ============================================================ */
+
+#stop{
+  position:fixed;
+
+  z-index:60;
+
+  right:14px;
+  bottom:14px;
+
+  display:none;
+
+  width:44px;
+  height:44px;
+
+  border:0;
+  border-radius:50%;
+
+  background:rgba(0,0,0,.75);
+
+  color:white;
+
+  font-size:16px;
+
+  cursor:pointer;
+}
+
+
+/* ============================================================
+   CAMERA INDICATOR
+   ============================================================ */
+
+#cameraIndicator{
+  position:fixed;
+
+  z-index:40;
+
+  width:34px;
+  height:34px;
+
+  margin-left:-17px;
+  margin-top:-17px;
+
+  border:2px solid rgba(255,255,255,.8);
+  border-radius:50%;
+
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5),
+    0 0 15px rgba(255,255,255,.3);
+
+  pointer-events:none;
+
+  display:none;
+}
+
+</style>
+</head>
+
+
+<body>
+
+
+<canvas id="canvas"></canvas>
+
+
+<div id="hint">
+  AI DRAW CANVAS 3D<br>
+  narration + \(draw commands\)<br>
+  drag = orbit · two fingers = pan/pinch = zoom
+</div>
+
+
+<button id="openComposer">
+  Open
+</button>
+
+
+<div id="composer">
+
+  <textarea
+    id="input"
+    rows="2"
+    spellcheck="false"
+    placeholder='Example: "Let us draw the base \(line 150 400 0 450 400 0 blue 1.2x width=4)"'
+  ></textarea>
+
+  <button id="send">
+    SEND
+  </button>
+
+  <button id="minimizeComposer">
+    X
+  </button>
+
+</div>
+
+
+<button id="stop">
+  ■
+</button>
+
+
+<div id="cameraIndicator"></div>
+
+
+<div id="status">
+  ready · 3D world · orthographic camera
+</div>
+
+
+<script>
+
+"use strict";
+
+
+/* ============================================================
+   DOM
+   ============================================================ */
+
+const canvas =
+  document.getElementById("canvas");
+
+const ctx =
+  canvas.getContext("2d");
+
+const input =
+  document.getElementById("input");
+
+const send =
+  document.getElementById("send");
+
+const stopButton =
+  document.getElementById("stop");
+
+const hint =
+  document.getElementById("hint");
+
+const status =
+  document.getElementById("status");
+
+const composer =
+  document.getElementById("composer");
+
+const openComposer =
+  document.getElementById("openComposer");
+
+const minimizeComposer =
+  document.getElementById("minimizeComposer");
+
+const cameraIndicator =
+  document.getElementById("cameraIndicator");
+
+
+/* ============================================================
+   COMPOSER
+   ============================================================ */
+
+composer.style.display = "none";
+
+
+openComposer.addEventListener(
+  "click",
+  () => {
+
+    composer.style.display = "flex";
+
+    openComposer.style.display = "none";
+
+    input.focus();
+
+  }
+);
+
+
+minimizeComposer.addEventListener(
+  "click",
+  () => {
+
+    composer.style.display = "none";
+
+    openComposer.style.display = "block";
+
+  }
+);
+
+
+/* ============================================================
+   CANVAS SIZE
+   ============================================================ */
+
+let WIDTH =
+  window.innerWidth;
+
+let HEIGHT =
+  window.innerHeight;
+
+let DPR =
+  Math.max(
+    1,
+    window.devicePixelRatio || 1
+  );
+
+
+/* ============================================================
+   3D WORLD
+   ============================================================ */
+
+const scene = [];
+
+
+/* ============================================================
+   CAMERA
+   ============================================================ */
+
+const camera = {
+
+  yaw:0,
+
+  pitch:0,
+
+  roll:0,
+
+  zoom:1,
+
+  target:{
+    x:WIDTH/2,
+    y:HEIGHT/2,
+    z:0
+  }
+
+};
+
+
+const MIN_ZOOM = 0.05;
+const MAX_ZOOM = 20;
+
+const MIN_PITCH =
+  -Math.PI/2 + .03;
+
+const MAX_PITCH =
+   Math.PI/2 - .03;
+
+
+/* ============================================================
+   ANIMATION STATE
+   ============================================================ */
+
+let stopped = false;
+
+
+/* ============================================================
+   RESIZE
+   ============================================================ */
+
+function resizeCanvas(){
+
+  const oldWidth =
+    WIDTH;
+
+  const oldHeight =
+    HEIGHT;
+
+
+  WIDTH =
+    window.innerWidth;
+
+  HEIGHT =
+    window.innerHeight;
+
+
+  DPR =
+    Math.max(
+      1,
+      window.devicePixelRatio || 1
+    );
+
+
+  canvas.width =
+    Math.round(
+      WIDTH * DPR
+    );
+
+  canvas.height =
+    Math.round(
+      HEIGHT * DPR
+    );
+
+
+  canvas.style.width =
+    WIDTH + "px";
+
+  canvas.style.height =
+    HEIGHT + "px";
+
+
+  ctx.setTransform(
+    DPR,
+    0,
+    0,
+    DPR,
+    0,
+    0
+  );
+
+
+  ctx.lineCap =
+    "round";
+
+  ctx.lineJoin =
+    "round";
+
+
+  camera.target.x +=
+    (WIDTH-oldWidth)/2;
+
+  camera.target.y +=
+    (HEIGHT-oldHeight)/2;
+
+
+  renderScene();
+
+}
+
+
+window.addEventListener(
+  "resize",
+  resizeCanvas
+);
+
+
+resizeCanvas();
+
+
+/* ============================================================
+   BASIC UTILITIES
+   ============================================================ */
+
+function sleep(ms){
+
+  return new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        ms
+      )
+  );
+
+}
+
+
+function clamp(
+  value,
+  min,
+  max
+){
+
+  return Math.max(
+    min,
+    Math.min(
+      max,
+      value
+    )
+  );
+
+}
+
+
+function number(
+  value,
+  fallback=0
+){
+
+  const n =
+    Number(value);
+
+  return Number.isFinite(n)
+    ? n
+    : fallback;
+
+}
+
+
+function stripQuotes(value){
+
+  if(
+    typeof value !== "string"
+  ){
+
+    return value;
+
+  }
+
+
+  if(
+    value.length >= 2 &&
+    (
+      (
+        value.startsWith('"') &&
+        value.endsWith('"')
+      )
+      ||
+      (
+        value.startsWith("'") &&
+        value.endsWith("'")
+      )
+    )
+  ){
+
+    return value.slice(
+      1,
+      -1
+    );
+
+  }
+
+
+  return value;
+
+}
+
+
+function isNumberToken(value){
+
+  return Number.isFinite(
+    Number(value)
+  );
+
+}
+
+
+/* ============================================================
+   VECTOR
+   ============================================================ */
+
+function point3(
+  x,
+  y,
+  z=0
+){
+
+  return {
+    x:number(x),
+    y:number(y),
+    z:number(z)
+  };
+
+}
+
+
+/* ============================================================
+   TOKENIZER
+   ============================================================ */
+
+function tokenize(command){
+
+  const tokens = [];
+
+  let current = "";
+
+  let quote = null;
+
+  let escaped = false;
+
+
+  for(
+    const ch of
+    String(command).trim()
+  ){
+
+    if(escaped){
+
+      current += ch;
+
+      escaped = false;
+
+      continue;
+
+    }
+
+
+    if(ch === "\\"){
+
+      escaped = true;
+
+      current += ch;
+
+      continue;
+
+    }
+
+
+    if(quote){
+
+      current += ch;
+
+      if(ch === quote){
+
+        quote = null;
+
+      }
+
+      continue;
+
+    }
+
+
+    if(
+      ch === '"' ||
+      ch === "'"
+    ){
+
+      quote = ch;
+
+      current += ch;
+
+      continue;
+
+    }
+
+
+    if(/\s/.test(ch)){
+
+      if(current){
+
+        tokens.push(
+          current
+        );
+
+        current = "";
+
+      }
+
+      continue;
+
+    }
+
+
+    current += ch;
+
+  }
+
+
+  if(current){
+
+    tokens.push(
+      current
+    );
+
+  }
+
+
+  return tokens;
+
+}
+
+
+/* ============================================================
+   COMMAND PARSER
+   ============================================================ */
+
+function parseCommand(raw){
+
+  const tokens =
+    tokenize(raw);
+
+
+  if(!tokens.length){
+
+    return null;
+
+  }
+
+
+  return {
+
+    name:
+      tokens[0].toLowerCase(),
+
+    args:
+      tokens.slice(1)
+
+  };
+
+}
+
+
+/* ============================================================
+   COLORS
+   ============================================================ */
+
+const COLORS =
+/^(red|green|blue|yellow|orange|purple|pink|white|black|cyan|magenta|lime|gold|gray|grey|brown|navy|teal|aqua|maroon|silver)$/i;
+
+
+function isColor(value){
+
+  if(
+    typeof value !== "string"
+  ){
+
+    return false;
+
+  }
+
+
+  return (
+    COLORS.test(value)
+    ||
+    /^#[0-9a-f]{3,8}$/i.test(value)
+    ||
+    /^(rgb|rgba|hsl|hsla)\(/i.test(value)
+  );
+
+}
+
+
+function isSpeed(value){
+
+  return /^\d+(?:\.\d+)?x$/i.test(
+    String(value)
+  );
+
+}
+
+
+function isFont(value){
+
+  return /^\d+(?:\.\d+)?(?:px|pt|em|rem|%|vw|vh)(?:\s+.+)?$/i.test(
+    String(value)
+  );
+
+}
+
+
+/* ============================================================
+   DURATION
+   ============================================================ */
+
+function parseDuration(
+  value,
+  fallback=1
+){
+
+  if(value == null){
+
+    return fallback;
+
+  }
+
+
+  const s =
+    String(value)
+      .trim()
+      .toLowerCase();
+
+
+  const n =
+    parseFloat(s);
+
+
+  if(
+    !Number.isFinite(n)
+  ){
+
+    return fallback;
+
+  }
+
+
+  if(
+    s.endsWith("ms")
+  ){
+
+    return n/1000;
+
+  }
+
+
+  return n;
+
+}
+
+
+/* ============================================================
+   STYLE
+   ============================================================ */
+
+function createStyle(args){
+
+  let color = "#fff";
+
+  let speed = 1;
+
+  let width = 4;
+
+  let glow = 0;
+
+  let glowColor = null;
+
+  let opacity = 1;
+
+  let fill = null;
+
+  let dash = [];
+
+  let cap = "round";
+
+  let join = "round";
+
+  let duration = null;
+
+  let ease = "linear";
+
+
+  for(
+    const rawToken of args
+  ){
+
+    const token =
+      String(rawToken);
+
+
+    if(
+      isColor(token)
+    ){
+
+      color = token;
+
+      continue;
+
+    }
+
+
+    if(
+      isSpeed(token)
+    ){
+
+      speed =
+        Math.max(
+          .05,
+          number(
+            token.slice(
+              0,
+              -1
+            ),
+            1
+          )
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "color="
+      )
+    ){
+
+      color =
+        stripQuotes(
+          token.slice(6)
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "width="
+      )
+    ){
+
+      width =
+        number(
+          token.slice(6),
+          4
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "w="
+      )
+    ){
+
+      width =
+        number(
+          token.slice(2),
+          4
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "glow="
+      )
+    ){
+
+      glow =
+        number(
+          token.slice(5),
+          0
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "glowcolor="
+      )
+    ){
+
+      glowColor =
+        stripQuotes(
+          token.slice(10)
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "opacity="
+      )
+    ){
+
+      opacity =
+        clamp(
+          number(
+            token.slice(8),
+            1
+          ),
+          0,
+          1
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "alpha="
+      )
+    ){
+
+      opacity =
+        clamp(
+          number(
+            token.slice(6),
+            1
+          ),
+          0,
+          1
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "fill="
+      )
+    ){
+
+      fill =
+        stripQuotes(
+          token.slice(5)
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "dash="
+      )
+    ){
+
+      dash =
+        token
+          .slice(5)
+          .split(",")
+          .map(Number)
+          .filter(
+            Number.isFinite
+          );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "cap="
+      )
+    ){
+
+      cap =
+        token.slice(4);
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "join="
+      )
+    ){
+
+      join =
+        token.slice(5);
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "duration="
+      )
+    ){
+
+      duration =
+        parseDuration(
+          token.slice(9),
+          1
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "speed="
+      )
+    ){
+
+      speed =
+        Math.max(
+          .05,
+          number(
+            token.slice(6),
+            1
+          )
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "ease="
+      )
+    ){
+
+      ease =
+        token.slice(5);
+
+      continue;
+
+    }
+
+  }
+
+
+  return {
+
+    color,
+
+    speed,
+
+    width,
+
+    glow,
+
+    glowColor:
+      glowColor || color,
+
+    opacity,
+
+    fill,
+
+    dash,
+
+    cap,
+
+    join,
+
+    duration,
+
+    ease
+
+  };
+
+}
+
+
+/* ============================================================
+   STYLE APPLY
+   ============================================================ */
+
+function applyStyle(style){
+
+  ctx.strokeStyle =
+    style.color;
+
+  ctx.fillStyle =
+    style.fill ||
+    style.color;
+
+  ctx.globalAlpha =
+    style.opacity;
+
+  ctx.lineWidth =
+    style.width *
+    camera.zoom;
+
+  ctx.lineCap =
+    style.cap;
+
+  ctx.lineJoin =
+    style.join;
+
+  ctx.setLineDash(
+    style.dash.map(
+      value =>
+        value *
+        camera.zoom
+    )
+  );
+
+  ctx.shadowBlur =
+    style.glow *
+    camera.zoom;
+
+  ctx.shadowColor =
+    style.glowColor;
+
+}
+
+
+function resetStyle(){
+
+  ctx.globalAlpha = 1;
+
+  ctx.shadowBlur = 0;
+
+  ctx.shadowColor =
+    "transparent";
+
+  ctx.setLineDash([]);
+
+}
+
+
+/* ============================================================
+   CAMERA ROTATION
+   ============================================================ */
+
+function worldToCamera(p){
+
+  const dx =
+    p.x -
+    camera.target.x;
+
+  const dy =
+    p.y -
+    camera.target.y;
+
+  const dz =
+    p.z -
+    camera.target.z;
+
+
+  const cy =
+    Math.cos(
+      camera.yaw
+    );
+
+  const sy =
+    Math.sin(
+      camera.yaw
+    );
+
+
+  const x1 =
+    cy * dx -
+    sy * dz;
+
+  const z1 =
+    sy * dx +
+    cy * dz;
+
+
+  const cp =
+    Math.cos(
+      camera.pitch
+    );
+
+  const sp =
+    Math.sin(
+      camera.pitch
+    );
+
+
+  const y2 =
+    cp * dy -
+    sp * z1;
+
+  const z2 =
+    sp * dy +
+    cp * z1;
+
+
+  const cr =
+    Math.cos(
+      camera.roll
+    );
+
+  const sr =
+    Math.sin(
+      camera.roll
+    );
+
+
+  const x3 =
+    cr * x1 -
+    sr * y2;
+
+  const y3 =
+    sr * x1 +
+    cr * y2;
+
+
+  return {
+
+    x:x3,
+
+    y:y3,
+
+    z:z2
+
+  };
+
+}
+
+
+/* ============================================================
+   3D → 2D PROJECTION
+   ============================================================ */
+
+function project(p){
+
+  const c =
+    worldToCamera(p);
+
+
+  return {
+
+    x:
+      WIDTH/2 +
+      c.x *
+      camera.zoom,
+
+    y:
+      HEIGHT/2 +
+      c.y *
+      camera.zoom,
+
+    depth:
+      c.z
+
+  };
+
+}
+
+
+/* ============================================================
+   PROJECT MULTIPLE POINTS
+   ============================================================ */
+
+function projectedPoints(
+  points
+){
+
+  return points.map(
+    project
+  );
+
+}
+
+
+/* ============================================================
+   DRAW PROJECTED PATH
+   ============================================================ */
+
+function drawProjectedPath(
+  points,
+  progress,
+  closed,
+  style
+){
+
+  if(
+    points.length < 2
+  ){
+
+    return;
+
+  }
+
+
+  const projected =
+    projectedPoints(
+      points
+    );
+
+
+  const segments =
+    points.length - 1;
+
+
+  const position =
+    clamp(
+      progress,
+      0,
+      1
+    ) *
+    segments;
+
+
+  const whole =
+    Math.floor(
+      position
+    );
+
+
+  const fraction =
+    position -
+    whole;
+
+
+  ctx.beginPath();
+
+
+  ctx.moveTo(
+    projected[0].x,
+    projected[0].y
+  );
+
+
+  for(
+    let i=1;
+    i<=whole &&
+    i<projected.length;
+    i++
+  ){
+
+    ctx.lineTo(
+      projected[i].x,
+      projected[i].y
+    );
+
+  }
+
+
+  if(
+    whole < segments
+  ){
+
+    const a =
+      projected[whole];
+
+    const b =
+      projected[
+        whole + 1
+      ];
+
+
+    ctx.lineTo(
+
+      a.x +
+      (b.x-a.x) *
+      fraction,
+
+      a.y +
+      (b.y-a.y) *
+      fraction
+
+    );
+
+  }
+
+
+  if(
+    closed &&
+    progress >= 1
+  ){
+
+    ctx.closePath();
+
+  }
+
+
+  applyStyle(style);
+
+  ctx.stroke();
+
+
+  if(
+    closed &&
+    style.fill &&
+    progress >= 1
+  ){
+
+    ctx.fill();
+
+  }
+
+
+  resetStyle();
+
+}
+
+
+/* ============================================================
+   ANIMATION
+   ============================================================ */
+
+function easing(
+  progress,
+  type
+){
+
+  progress =
+    clamp(
+      progress,
+      0,
+      1
+    );
+
+
+  if(type === "ease"){
+
+    return progress *
+      progress *
+      (3 - 2 * progress);
+
+  }
+
+
+  if(type === "in"){
+
+    return progress *
+      progress;
+
+  }
+
+
+  if(type === "out"){
+
+    return 1 -
+      (1-progress) *
+      (1-progress);
+
+  }
+
+
+  return progress;
+
+}
+
+
+function animationTime(
+  style,
+  normalSeconds
+){
+
+  const base =
+    style.duration != null
+      ? style.duration
+      : normalSeconds;
+
+
+  return Math.max(
+    20,
+    (
+      base /
+      style.speed
+    ) *
+    1000
+  );
+
+}
+
+
+/* ============================================================
+   SCENE RENDER
+   ============================================================ */
+
+function renderScene(){
+
+  ctx.setTransform(
+    DPR,
+    0,
+    0,
+    DPR,
+    0,
+    0
+  );
+
+
+  ctx.clearRect(
+    0,
+    0,
+    WIDTH,
+    HEIGHT
+  );
+
+
+  const objects =
+    scene
+      .slice()
+      .sort(
+        (a,b) =>
+          objectDepth(a) -
+          objectDepth(b)
+      );
+
+
+  for(
+    const object of objects
+  ){
+
+    renderObject(
+      object
+    );
+
+  }
+
+
+  resetStyle();
+
+}
+
+
+/* ============================================================
+   OBJECT DEPTH
+   ============================================================ */
+
+function objectDepth(object){
+
+  if(
+    object.type === "point" ||
+    object.type === "text"
+  ){
+
+    return project(
+      object.position
+    ).depth;
+
+  }
+
+
+  if(
+    object.points &&
+    object.points.length
+  ){
+
+    let total = 0;
+
+    for(
+      const p of object.points
+    ){
+
+      total +=
+        project(p).depth;
+
+    }
+
+    return total /
+      object.points.length;
+
+  }
+
+
+  if(
+    object.center
+  ){
+
+    return project(
+      object.center
+    ).depth;
+
+  }
+
+
+  /*
+     Cylinder and cone use their
+     complete point set for depth.
+  */
+
+  if(
+    object.type === "cylinder" ||
+    object.type === "cone"
+  ){
+
+    if(
+      object.geometryPoints &&
+      object.geometryPoints.length
+    ){
+
+      let total = 0;
+
+      for(
+        const p of object.geometryPoints
+      ){
+
+        total +=
+          project(p).depth;
+
+      }
+
+      return total /
+        object.geometryPoints.length;
+
+    }
+
+  }
+
+
+  return 0;
+
+}
+
+
+/* ============================================================
+   RENDER OBJECT
+   ============================================================ */
+
+function renderObject(object){
+
+  const progress =
+    object.progress == null
+      ? 1
+      : object.progress;
+
+
+  if(
+    object.type === "line"
+  ){
+
+    drawProjectedPath(
+      object.points,
+      progress,
+      false,
+      object.style
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "path"
+  ){
+
+    drawProjectedPath(
+      object.points,
+      progress,
+      object.closed,
+      object.style
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "point"
+  ){
+
+    const p =
+      project(
+        object.position
+      );
+
+
+    applyStyle(
+      object.style
+    );
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      p.x,
+      p.y,
+      object.radius *
+      progress *
+      camera.zoom,
+      0,
+      Math.PI*2
+    );
+
+    ctx.fill();
+
+    resetStyle();
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "curve"
+  ){
+
+    drawProjectedPath(
+      object.samples,
+      progress,
+      false,
+      object.style
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "circle"
+  ){
+
+    renderEllipseObject(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "ellipse"
+  ){
+
+    renderEllipseObject(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "arc"
+  ){
+
+    renderEllipseObject(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "cylinder"
+  ){
+
+    renderCylinder(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "cone"
+  ){
+
+    renderCone(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "text"
+  ){
+
+    const p =
+      project(
+        object.position
+      );
+
+
+    ctx.save();
+
+
+    ctx.globalAlpha =
+      object.opacity *
+      progress;
+
+    ctx.fillStyle =
+      object.color;
+
+    ctx.font =
+      scaleFont(
+        object.font
+      );
+
+    ctx.textAlign =
+      object.align;
+
+    ctx.textBaseline =
+      object.baseline;
+
+    ctx.shadowBlur =
+      object.glow *
+      camera.zoom;
+
+    ctx.shadowColor =
+      object.color;
+
+
+    ctx.fillText(
+      object.text,
+      p.x,
+      p.y
+    );
+
+
+    ctx.restore();
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "highlight"
+  ){
+
+    const p =
+      project(
+        object.center
+      );
+
+
+    ctx.save();
+
+    ctx.globalAlpha =
+      object.style.opacity *
+      .35 *
+      progress;
+
+    ctx.strokeStyle =
+      object.style.color;
+
+    ctx.lineWidth =
+      object.style.width *
+      camera.zoom;
+
+    ctx.shadowBlur =
+      object.style.glow *
+      camera.zoom;
+
+    ctx.shadowColor =
+      object.style.glowColor;
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+      p.x,
+      p.y,
+      object.radius *
+      camera.zoom,
+      0,
+      Math.PI*2
+    );
+
+    ctx.stroke();
+
+    ctx.restore();
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "grid"
+  ){
+
+    renderGrid(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "cross"
+  ){
+
+    renderCross(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "bracket"
+  ){
+
+    renderBracket(
+      object,
+      progress
+    );
+
+    return;
+
+  }
+
+
+  if(
+    object.type === "image"
+  ){
+
+    renderImage(
+      object,
+      progress
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   FONT SCALING
+   ============================================================ */
+
+function scaleFont(font){
+
+  return String(font)
+    .replace(
+      /(\d+(?:\.\d+)?)px/g,
+      (
+        match,
+        value
+      ) =>
+        (
+          Number(value) *
+          camera.zoom
+        ) + "px"
+    );
+
+}
+
+
+/* ============================================================
+   PLANAR ELLIPSE GENERATOR
+   ============================================================ */
+
+function ellipseSamples(
+  center,
+  rx,
+  ry,
+  plane,
+  start,
+  end,
+  count
+){
+
+  const points = [];
+
+
+  for(
+    let i=0;
+    i<=count;
+    i++
+  ){
+
+    const t =
+      start +
+      (
+        end-start
+      ) *
+      (
+        i/count
+      );
+
+
+    const c =
+      Math.cos(t);
+
+    const s =
+      Math.sin(t);
+
+
+    if(
+      plane === "xz"
+    ){
+
+      points.push({
+        x:
+          center.x +
+          rx*c,
+
+        y:
+          center.y,
+
+        z:
+          center.z +
+          ry*s
+
+      });
+
+    }
+    else if(
+      plane === "yz"
+    ){
+
+      points.push({
+        x:
+          center.x,
+
+        y:
+          center.y +
+          rx*c,
+
+        z:
+          center.z +
+          ry*s
+
+      });
+
+    }
+    else{
+
+      points.push({
+        x:
+          center.x +
+          rx*c,
+
+        y:
+          center.y +
+          ry*s,
+
+        z:
+          center.z
+
+      });
+
+    }
+
+  }
+
+
+  return points;
+
+}
+
+
+/* ============================================================
+   RENDER ELLIPSE / CIRCLE / ARC
+   ============================================================ */
+
+function renderEllipseObject(
+  object,
+  progress
+){
+
+  const end =
+    object.start +
+    (
+      object.end -
+      object.start
+    ) *
+    progress;
+
+
+  const points =
+    ellipseSamples(
+      object.center,
+      object.rx,
+      object.ry,
+      object.plane,
+      object.start,
+      end,
+      120
+    );
+
+
+  drawProjectedPath(
+    points,
+    1,
+    object.closed,
+    object.style
+  );
+
+}
+
+
+/* ============================================================
+   CYLINDER GEOMETRY
+   ============================================================ */
+
+/*
+   Cylinder axis = world Y.
+
+   x/z form the circular cross-section.
+
+   The cylinder is represented by:
+
+   - bottom circular ring
+   - top circular ring
+   - many curved side strips
+
+   The side surface is approximated with many
+   narrow quadrilateral strips. This makes the
+   curved surface visible instead of only drawing
+   two straight connecting lines.
+*/
+
+function cylinderGeometry(
+  center,
+  radius,
+  height,
+  segments=72
+){
+
+  const bottom = [];
+  const top = [];
+  const sideFaces = [];
+
+
+  for(
+    let i=0;
+    i<segments;
+    i++
+  ){
+
+    const t =
+      (
+        i /
+        segments
+      ) *
+      Math.PI*2;
+
+
+    const x =
+      center.x +
+      radius *
+      Math.cos(t);
+
+    const z =
+      center.z +
+      radius *
+      Math.sin(t);
+
+
+    bottom.push(
+      point3(
+        x,
+        center.y,
+        z
+      )
+    );
+
+
+    top.push(
+      point3(
+        x,
+        center.y-height,
+        z
+      )
+    );
+
+  }
+
+
+  for(
+    let i=0;
+    i<segments;
+    i++
+  ){
+
+    const next =
+      (
+        i+1
+      ) %
+      segments;
+
+
+    sideFaces.push([
+
+      bottom[i],
+      bottom[next],
+      top[next],
+      top[i]
+
+    ]);
+
+  }
+
+
+  return {
+
+    bottom,
+    top,
+    sideFaces
+
+  };
+
+}
+
+
+/* ============================================================
+   RENDER CYLINDER
+   ============================================================ */
+
+function renderCylinder(
+  object,
+  progress
+){
+
+  const geometry =
+    object.geometry;
+
+
+  const visibleSegments =
+    Math.max(
+      1,
+      Math.ceil(
+        geometry.sideFaces.length *
+        progress
+      )
+    );
+
+
+  /*
+     Side surface.
+
+     Each narrow quad is individually
+     projected. Because the camera can orbit,
+     this produces a convincing curved wall.
+  */
+
+  for(
+    let i=0;
+    i<visibleSegments &&
+    i<geometry.sideFaces.length;
+    i++
+  ){
+
+    const face =
+      geometry.sideFaces[i];
+
+
+    const projected =
+      projectedPoints(
+        face
+      );
+
+
+    if(
+      projected.length < 4
+    ){
+
+      continue;
+
+    }
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      projected[0].x,
+      projected[0].y
+    );
+
+    ctx.lineTo(
+      projected[1].x,
+      projected[1].y
+    );
+
+    ctx.lineTo(
+      projected[2].x,
+      projected[2].y
+    );
+
+    ctx.lineTo(
+      projected[3].x,
+      projected[3].y
+    );
+
+    ctx.closePath();
+
+
+    applyStyle(
+      object.style
+    );
+
+
+    /*
+       A filled side surface is the main
+       thing that makes the cylinder look
+       cylindrical.
+
+       We use the requested fill when present,
+       otherwise the normal stroke color.
+    */
+
+    if(object.style.fill){
+
+      ctx.fill();
+
+    }
+
+
+    ctx.stroke();
+
+    resetStyle();
+
+  }
+
+
+  if(progress >= 1){
+
+    /*
+       Draw bottom and top circular rims.
+    */
+
+    drawProjectedPath(
+      [
+        ...geometry.bottom,
+        geometry.bottom[0]
+      ],
+      1,
+      false,
+      object.style
+    );
+
+
+    drawProjectedPath(
+      [
+        ...geometry.top,
+        geometry.top[0]
+      ],
+      1,
+      false,
+      object.style
+    );
+
+
+    /*
+       Fill the end faces if requested.
+    */
+
+    if(object.style.fill){
+
+      const bottomProjected =
+        projectedPoints(
+          geometry.bottom
+        );
+
+      const topProjected =
+        projectedPoints(
+          geometry.top
+        );
+
+
+      ctx.save();
+
+      applyStyle(
+        object.style
+      );
+
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        bottomProjected[0].x,
+        bottomProjected[0].y
+      );
+
+      for(
+        let i=1;
+        i<bottomProjected.length;
+        i++
+      ){
+
+        ctx.lineTo(
+          bottomProjected[i].x,
+          bottomProjected[i].y
+        );
+
+      }
+
+      ctx.closePath();
+
+      ctx.fill();
+
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        topProjected[0].x,
+        topProjected[0].y
+      );
+
+      for(
+        let i=1;
+        i<topProjected.length;
+        i++
+      ){
+
+        ctx.lineTo(
+          topProjected[i].x,
+          topProjected[i].y
+        );
+
+      }
+
+      ctx.closePath();
+
+      ctx.fill();
+
+
+      ctx.restore();
+
+    }
+
+  }
+
+}
+
+
+/* ============================================================
+   CONE GEOMETRY
+   ============================================================ */
+
+/*
+   Cone axis = world Y.
+
+   The circular base is at y.
+
+   The apex is at:
+
+       y - height
+
+   The side surface is made from many
+   triangular strips, giving the cone
+   a genuinely curved circular base and
+   a smooth-looking side.
+*/
+
+function coneGeometry(
+  center,
+  radius,
+  height,
+  segments=72
+){
+
+  const base = [];
+
+  const sideFaces = [];
+
+
+  const apex =
+    point3(
+      center.x,
+      center.y-height,
+      center.z
+    );
+
+
+  for(
+    let i=0;
+    i<segments;
+    i++
+  ){
+
+    const t =
+      (
+        i /
+        segments
+      ) *
+      Math.PI*2;
+
+
+    base.push(
+      point3(
+        center.x +
+          radius *
+          Math.cos(t),
+
+        center.y,
+
+        center.z +
+          radius *
+          Math.sin(t)
+      )
+    );
+
+  }
+
+
+  for(
+    let i=0;
+    i<segments;
+    i++
+  ){
+
+    const next =
+      (
+        i+1
+      ) %
+      segments;
+
+
+    sideFaces.push([
+
+      base[i],
+      base[next],
+      apex
+
+    ]);
+
+  }
+
+
+  return {
+
+    base,
+
+    apex,
+
+    sideFaces
+
+  };
+
+}
+
+
+/* ============================================================
+   RENDER CONE
+   ============================================================ */
+
+function renderCone(
+  object,
+  progress
+){
+
+  const geometry =
+    object.geometry;
+
+
+  const visibleSegments =
+    Math.max(
+      1,
+      Math.ceil(
+        geometry.sideFaces.length *
+        progress
+      )
+    );
+
+
+  /*
+     Draw the many triangular surface
+     strips. From an orbiting camera they
+     combine into a smooth cone surface.
+  */
+
+  for(
+    let i=0;
+    i<visibleSegments &&
+    i<geometry.sideFaces.length;
+    i++
+  ){
+
+    const face =
+      geometry.sideFaces[i];
+
+
+    const projected =
+      projectedPoints(
+        face
+      );
+
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      projected[0].x,
+      projected[0].y
+    );
+
+    ctx.lineTo(
+      projected[1].x,
+      projected[1].y
+    );
+
+    ctx.lineTo(
+      projected[2].x,
+      projected[2].y
+    );
+
+    ctx.closePath();
+
+
+    applyStyle(
+      object.style
+    );
+
+
+    if(object.style.fill){
+
+      ctx.fill();
+
+    }
+
+
+    ctx.stroke();
+
+    resetStyle();
+
+  }
+
+
+  if(progress >= 1){
+
+    /*
+       Circular base.
+    */
+
+    drawProjectedPath(
+      [
+        ...geometry.base,
+        geometry.base[0]
+      ],
+      1,
+      false,
+      object.style
+    );
+
+
+    /*
+       Fill the base if requested.
+    */
+
+    if(object.style.fill){
+
+      const projected =
+        projectedPoints(
+          geometry.base
+        );
+
+
+      ctx.save();
+
+      applyStyle(
+        object.style
+      );
+
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        projected[0].x,
+        projected[0].y
+      );
+
+      for(
+        let i=1;
+        i<projected.length;
+        i++
+      ){
+
+        ctx.lineTo(
+          projected[i].x,
+          projected[i].y
+        );
+
+      }
+
+      ctx.closePath();
+
+      ctx.fill();
+
+      ctx.restore();
+
+    }
+
+  }
+
+}
+
+
+/* ============================================================
+   RENDER CROSS
+   ============================================================ */
+
+function renderCross(
+  object,
+  progress
+){
+
+  const r =
+    object.radius *
+    progress;
+
+
+  drawProjectedPath(
+    [
+      {
+        x:
+          object.center.x-r,
+        y:
+          object.center.y,
+        z:
+          object.center.z
+      },
+      {
+        x:
+          object.center.x+r,
+        y:
+          object.center.y,
+        z:
+          object.center.z
+      }
+    ],
+    1,
+    false,
+    object.style
+  );
+
+
+  drawProjectedPath(
+    [
+      {
+        x:
+          object.center.x,
+        y:
+          object.center.y-r,
+        z:
+          object.center.z
+      },
+      {
+        x:
+          object.center.x,
+        y:
+          object.center.y+r,
+        z:
+          object.center.z
+      }
+    ],
+    1,
+    false,
+    object.style
+  );
+
+}
+
+
+/* ============================================================
+   RENDER BRACKET
+   ============================================================ */
+
+function renderBracket(
+  object,
+  progress
+){
+
+  const w =
+    object.width *
+    progress;
+
+
+  drawProjectedPath(
+    [
+      {
+        x:
+          object.x,
+        y:
+          object.y,
+        z:
+          object.z
+      },
+
+      {
+        x:
+          object.x+w,
+        y:
+          object.y,
+        z:
+          object.z
+      },
+
+      {
+        x:
+          object.x+w,
+        y:
+          object.y+
+          object.height,
+        z:
+          object.z
+      },
+
+      {
+        x:
+          object.x,
+        y:
+          object.y+
+          object.height,
+        z:
+          object.z
+      }
+    ],
+    1,
+    false,
+    object.style
+  );
+
+}
+
+
+/* ============================================================
+   RENDER GRID
+   ============================================================ */
+
+function renderGrid(
+  object,
+  progress
+){
+
+  const lines = [];
+
+
+  for(
+    let i=0;
+    i<=object.cols;
+    i++
+  ){
+
+    lines.push({
+
+      points:[
+        {
+          x:
+            object.x+
+            i*object.cell,
+
+          y:
+            object.y,
+
+          z:
+            object.z
+        },
+
+        {
+          x:
+            object.x+
+            i*object.cell,
+
+          y:
+            object.y+
+            object.rows*object.cell,
+
+          z:
+            object.z
+        }
+      ]
+
+    });
+
+  }
+
+
+  for(
+    let j=0;
+    j<=object.rows;
+    j++
+  ){
+
+    lines.push({
+
+      points:[
+        {
+          x:
+            object.x,
+
+          y:
+            object.y+
+            j*object.cell,
+
+          z:
+            object.z
+        },
+
+        {
+          x:
+            object.x+
+            object.cols*object.cell,
+
+          y:
+            object.y+
+            j*object.cell,
+
+          z:
+            object.z
+        }
+      ]
+
+    });
+
+  }
+
+
+  const count =
+    Math.ceil(
+      lines.length *
+      progress
+    );
+
+
+  for(
+    let i=0;
+    i<count;
+    i++
+  ){
+
+    drawProjectedPath(
+      lines[i].points,
+      1,
+      false,
+      object.style
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   RENDER IMAGE
+   ============================================================ */
+
+function renderImage(
+  object,
+  progress
+){
+
+  if(!object.image){
+
+    return;
+
+  }
+
+
+  const p =
+    project(
+      object.position
+    );
+
+
+  ctx.save();
+
+
+  ctx.globalAlpha =
+    object.opacity *
+    progress;
+
+
+  const width =
+    object.width *
+    camera.zoom;
+
+  const height =
+    object.height *
+    camera.zoom;
+
+
+  ctx.drawImage(
+    object.image,
+
+    p.x -
+    width/2,
+
+    p.y -
+    height/2,
+
+    width,
+    height
+  );
+
+
+  ctx.restore();
+
+}
+
+
+/* ============================================================
+   ADD + ANIMATE SCENE OBJECT
+   ============================================================ */
+
+function addAnimatedObject(
+  object,
+  seconds,
+  ease="linear"
+){
+
+  object.progress = 0;
+
+  scene.push(
+    object
+  );
+
+
+  renderScene();
+
+
+  const milliseconds =
+    Math.max(
+      20,
+      seconds*1000
+    );
+
+
+  const start =
+    performance.now();
+
+
+  return new Promise(
+    resolve => {
+
+      function frame(now){
+
+        if(stopped){
+
+          object.progress =
+            0;
+
+          renderScene();
+
+          resolve();
+
+          return;
+
+        }
+
+
+        const raw =
+          clamp(
+            (
+              now-start
+            ) /
+            milliseconds,
+            0,
+            1
+          );
+
+
+        object.progress =
+          easing(
+            raw,
+            ease
+          );
+
+
+        renderScene();
+
+
+        if(raw < 1){
+
+          requestAnimationFrame(
+            frame
+          );
+
+        }
+        else{
+
+          object.progress =
+            1;
+
+          renderScene();
+
+          resolve();
+
+        }
+
+      }
+
+
+      requestAnimationFrame(
+        frame
+      );
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   LINE
+   ============================================================ */
+
+async function drawLine(args){
+
+  let values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  let points;
+
+
+  if(values.length >= 6){
+
+    points = [
+
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      ),
+
+      point3(
+        values[3],
+        values[4],
+        values[5]
+      )
+
+    ];
+
+  }
+  else if(values.length >= 4){
+
+    points = [
+
+      point3(
+        values[0],
+        values[1],
+        0
+      ),
+
+      point3(
+        values[2],
+        values[3],
+        0
+      )
+
+    ];
+
+  }
+  else{
+
+    throw new Error(
+      "line requires x1 y1 x2 y2 OR x1 y1 z1 x2 y2 z2"
+    );
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  status.textContent =
+    "line · 3D world coordinates";
+
+
+  await addAnimatedObject(
+
+    {
+      type:"line",
+      points,
+      style
+    },
+
+    animationTime(
+      style,
+      1
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   POINT
+   ============================================================ */
+
+async function drawPoint(args){
+
+  if(
+    args.length < 2
+  ){
+
+    throw new Error(
+      "point requires x y"
+    );
+
+  }
+
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  let x =
+    values[0];
+
+  let y =
+    values[1];
+
+  let z = 0;
+
+  let radius = 6;
+
+
+  if(
+    values.length >= 4
+  ){
+
+    z =
+      values[2];
+
+    radius =
+      values[3];
+
+  }
+  else if(
+    values.length >= 3
+  ){
+
+    radius =
+      values[2];
+
+  }
+
+
+  const remaining =
+    args.slice(index);
+
+
+  const style =
+    createStyle(
+      remaining
+    );
+
+
+  for(
+    const token of remaining
+  ){
+
+    if(
+      token.startsWith(
+        "radius="
+      )
+    ){
+
+      radius =
+        number(
+          token.slice(7),
+          radius
+        );
+
+    }
+
+    if(
+      token.startsWith(
+        "r="
+      )
+    ){
+
+      radius =
+        number(
+          token.slice(2),
+          radius
+        );
+
+    }
+
+    if(
+      token.startsWith(
+        "size="
+      )
+    ){
+
+      radius =
+        number(
+          token.slice(5),
+          radius
+        );
+
+    }
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"point",
+
+      position:
+        point3(
+          x,
+          y,
+          z
+        ),
+
+      radius,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      .4
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   ARROW
+   ============================================================ */
+
+async function drawArrow(args){
+
+  let values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  let points;
+
+
+  if(
+    values.length >= 6
+  ){
+
+    points = [
+
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      ),
+
+      point3(
+        values[3],
+        values[4],
+        values[5]
+      )
+
+    ];
+
+  }
+  else if(
+    values.length >= 4
+  ){
+
+    points = [
+
+      point3(
+        values[0],
+        values[1]
+      ),
+
+      point3(
+        values[2],
+        values[3]
+      )
+
+    ];
+
+  }
+  else{
+
+    throw new Error(
+      "arrow requires 4 or 6 coordinates"
+    );
+
+  }
+
+
+  let head = 12;
+
+
+  const styleArgs =
+    args.slice(index);
+
+
+  for(
+    const token of styleArgs
+  ){
+
+    if(
+      token.startsWith(
+        "head="
+      )
+    ){
+
+      head =
+        number(
+          token.slice(5),
+          12
+        );
+
+    }
+
+  }
+
+
+  const style =
+    createStyle(
+      styleArgs
+    );
+
+
+  const object = {
+
+    type:"line",
+
+    points,
+
+    style,
+
+    arrow:true,
+
+    head
+
+  };
+
+
+  scene.push(
+    object
+  );
+
+
+  object.progress = 0;
+
+
+  const duration =
+    animationTime(
+      style,
+      1
+    );
+
+
+  const start =
+    performance.now();
+
+
+  await new Promise(
+    resolve => {
+
+      function frame(now){
+
+        if(stopped){
+
+          resolve();
+
+          return;
+
+        }
+
+
+        const raw =
+          clamp(
+            (
+              now-start
+            ) /
+            duration,
+            0,
+            1
+          );
+
+
+        object.progress =
+          easing(
+            raw,
+            style.ease
+          );
+
+
+        renderScene();
+
+
+        if(raw < 1){
+
+          requestAnimationFrame(
+            frame
+          );
+
+        }
+        else{
+
+          object.progress = 1;
+
+          renderScene();
+
+
+          const p =
+            project(
+              points[1]
+            );
+
+          const q =
+            project(
+              points[0]
+            );
+
+
+          const angle =
+            Math.atan2(
+              p.y-q.y,
+              p.x-q.x
+            );
+
+
+          ctx.save();
+
+          applyStyle(style);
+
+          ctx.beginPath();
+
+          ctx.moveTo(
+            p.x,
+            p.y
+          );
+
+          ctx.lineTo(
+            p.x -
+            head *
+            camera.zoom *
+            Math.cos(
+              angle-.55
+            ),
+            p.y -
+            head *
+            camera.zoom *
+            Math.sin(
+              angle-.55
+            )
+          );
+
+          ctx.moveTo(
+            p.x,
+            p.y
+          );
+
+          ctx.lineTo(
+            p.x -
+            head *
+            camera.zoom *
+            Math.cos(
+              angle+.55
+            ),
+            p.y -
+            head *
+            camera.zoom *
+            Math.sin(
+              angle+.55
+            )
+          );
+
+          ctx.stroke();
+
+          ctx.restore();
+
+          resolve();
+
+        }
+
+      }
+
+
+      requestAnimationFrame(
+        frame
+      );
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   CIRCLE
+   ============================================================ */
+
+async function drawCircle(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 3
+  ){
+
+    throw new Error(
+      "circle requires x y radius OR x y z radius"
+    );
+
+  }
+
+
+  let center;
+
+  let radius;
+
+
+  if(
+    values.length >= 4
+  ){
+
+    center =
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      );
+
+    radius =
+      values[3];
+
+  }
+  else{
+
+    center =
+      point3(
+        values[0],
+        values[1],
+        0
+      );
+
+    radius =
+      values[2];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  let plane = "xy";
+
+
+  for(
+    const token of args.slice(index)
+  ){
+
+    if(
+      token.startsWith(
+        "plane="
+      )
+    ){
+
+      plane =
+        token.slice(6)
+          .toLowerCase();
+
+    }
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"circle",
+
+      center,
+
+      rx:radius,
+
+      ry:radius,
+
+      start:0,
+
+      end:
+        Math.PI*2,
+
+      closed:true,
+
+      plane,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   ELLIPSE
+   ============================================================ */
+
+async function drawEllipse(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 4
+  ){
+
+    throw new Error(
+      "ellipse requires x y rx ry"
+    );
+
+  }
+
+
+  let center;
+
+  let rx;
+
+  let ry;
+
+
+  if(
+    values.length >= 5
+  ){
+
+    center =
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      );
+
+    rx =
+      values[3];
+
+    ry =
+      values[4];
+
+  }
+  else{
+
+    center =
+      point3(
+        values[0],
+        values[1]
+      );
+
+    rx =
+      values[2];
+
+    ry =
+      values[3];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  let plane = "xy";
+
+
+  for(
+    const token of args.slice(index)
+  ){
+
+    if(
+      token.startsWith(
+        "plane="
+      )
+    ){
+
+      plane =
+        token.slice(6)
+          .toLowerCase();
+
+    }
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"ellipse",
+
+      center,
+
+      rx,
+
+      ry,
+
+      start:0,
+
+      end:
+        Math.PI*2,
+
+      closed:true,
+
+      plane,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   ARC
+   ============================================================ */
+
+async function drawArc(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 5
+  ){
+
+    throw new Error(
+      "arc requires x y radius startAngle endAngle"
+    );
+
+  }
+
+
+  let center;
+
+  let radius;
+
+  let start;
+
+  let end;
+
+
+  if(
+    values.length >= 6
+  ){
+
+    center =
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      );
+
+    radius =
+      values[3];
+
+    start =
+      values[4];
+
+    end =
+      values[5];
+
+  }
+  else{
+
+    center =
+      point3(
+        values[0],
+        values[1]
+      );
+
+    radius =
+      values[2];
+
+    start =
+      values[3];
+
+    end =
+      values[4];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  let plane = "xy";
+
+
+  for(
+    const token of args.slice(index)
+  ){
+
+    if(
+      token.startsWith(
+        "plane="
+      )
+    ){
+
+      plane =
+        token.slice(6)
+          .toLowerCase();
+
+    }
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"arc",
+
+      center,
+
+      rx:radius,
+
+      ry:radius,
+
+      start,
+
+      end,
+
+      closed:false,
+
+      plane,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   RECTANGLE
+   ============================================================ */
+
+async function drawRectangle(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 4
+  ){
+
+    throw new Error(
+      "rect requires x y width height"
+    );
+
+  }
+
+
+  let x =
+    values[0];
+
+  let y =
+    values[1];
+
+  let z = 0;
+
+  let width;
+
+  let height;
+
+
+  if(
+    values.length >= 5
+  ){
+
+    z =
+      values[2];
+
+    width =
+      values[3];
+
+    height =
+      values[4];
+
+  }
+  else{
+
+    width =
+      values[2];
+
+    height =
+      values[3];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  const points = [
+
+    point3(
+      x,
+      y,
+      z
+    ),
+
+    point3(
+      x+width,
+      y,
+      z
+    ),
+
+    point3(
+      x+width,
+      y+height,
+      z
+    ),
+
+    point3(
+      x,
+      y+height,
+      z
+    )
+
+  ];
+
+
+  await addAnimatedObject(
+
+    {
+      type:"path",
+
+      points,
+
+      closed:true,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   ROUNDED RECTANGLE
+   ============================================================ */
+
+async function drawRoundRect(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 5
+  ){
+
+    throw new Error(
+      "roundrect requires x y width height radius"
+    );
+
+  }
+
+
+  let x =
+    values[0];
+
+  let y =
+    values[1];
+
+  let z = 0;
+
+  let width;
+
+  let height;
+
+  let radius;
+
+
+  if(
+    values.length >= 6
+  ){
+
+    z =
+      values[2];
+
+    width =
+      values[3];
+
+    height =
+      values[4];
+
+    radius =
+      values[5];
+
+  }
+  else{
+
+    width =
+      values[2];
+
+    height =
+      values[3];
+
+    radius =
+      values[4];
+
+  }
+
+
+  radius =
+    Math.min(
+      radius,
+      width/2,
+      height/2
+    );
+
+
+  const points = [];
+
+
+  function addArc(
+    cx,
+    cy,
+    start,
+    end
+  ){
+
+    for(
+      let i=0;
+      i<=12;
+      i++
+    ){
+
+      const t =
+        start+
+        (
+          end-start
+        ) *
+        (
+          i/12
+        );
+
+
+      points.push(
+        point3(
+          cx+
+            radius*Math.cos(t),
+
+          cy+
+            radius*Math.sin(t),
+
+          z
+        )
+      );
+
+    }
+
+  }
+
+
+  addArc(
+    x+radius,
+    y+radius,
+    Math.PI,
+    Math.PI*1.5
+  );
+
+  addArc(
+    x+width-radius,
+    y+radius,
+    Math.PI*1.5,
+    Math.PI*2
+  );
+
+  addArc(
+    x+width-radius,
+    y+height-radius,
+    0,
+    Math.PI*.5
+  );
+
+  addArc(
+    x+radius,
+    y+height-radius,
+    Math.PI*.5,
+    Math.PI
+  );
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  await addAnimatedObject(
+
+    {
+      type:"path",
+
+      points,
+
+      closed:true,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   POLYGON / POLYLINE
+   ============================================================ */
+
+function splitGeometryAndStyle(
+  args
+){
+
+  const geometry = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    geometry.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  return {
+
+    geometry,
+
+    styles:
+      args.slice(index)
+
+  };
+
+}
+
+
+async function drawPolygon(
+  args,
+  closed
+){
+
+  const split =
+    splitGeometryAndStyle(
+      args
+    );
+
+
+  const geometry =
+    split.geometry;
+
+
+  let dimensions;
+
+
+  if(
+    geometry.length >= 9 &&
+    geometry.length % 3 === 0 &&
+    geometry.length % 2 !== 0
+  ){
+
+    dimensions = 3;
+
+  }
+  else if(
+    geometry.length >= 9 &&
+    geometry.length % 3 === 0 &&
+    geometry.length % 2 !== 0
+  ){
+
+    dimensions = 3;
+
+  }
+  else{
+
+    dimensions = 2;
+
+  }
+
+
+  for(
+    const token of split.styles
+  ){
+
+    if(
+      token === "3d" ||
+      token === "xyz"
+    ){
+
+      dimensions = 3;
+
+    }
+
+  }
+
+
+  const points = [];
+
+
+  if(
+    dimensions === 3
+  ){
+
+    if(
+      geometry.length < 9 ||
+      geometry.length % 3 !== 0
+    ){
+
+      throw new Error(
+        "3D polygon requires XYZ coordinate triples"
+      );
+
+    }
+
+
+    for(
+      let i=0;
+      i<geometry.length;
+      i+=3
+    ){
+
+      points.push(
+        point3(
+          geometry[i],
+          geometry[i+1],
+          geometry[i+2]
+        )
+      );
+
+    }
+
+  }
+  else{
+
+    if(
+      geometry.length < 4 ||
+      geometry.length % 2 !== 0
+    ){
+
+      throw new Error(
+        "polygon/polyline requires XY coordinate pairs"
+      );
+
+    }
+
+
+    for(
+      let i=0;
+      i<geometry.length;
+      i+=2
+    ){
+
+      points.push(
+        point3(
+          geometry[i],
+          geometry[i+1],
+          0
+        )
+      );
+
+    }
+
+  }
+
+
+  const style =
+    createStyle(
+      split.styles
+    );
+
+
+  await addAnimatedObject(
+
+    {
+      type:"path",
+
+      points,
+
+      closed,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1.2
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   QUADRATIC BEZIER
+   ============================================================ */
+
+async function drawQuadratic(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 6
+  ){
+
+    throw new Error(
+      "quadratic requires x0 y0 cx cy x1 y1"
+    );
+
+  }
+
+
+  let p0;
+  let pc;
+  let p1;
+
+
+  if(
+    values.length >= 9
+  ){
+
+    p0 =
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      );
+
+    pc =
+      point3(
+        values[3],
+        values[4],
+        values[5]
+      );
+
+    p1 =
+      point3(
+        values[6],
+        values[7],
+        values[8]
+      );
+
+  }
+  else{
+
+    p0 =
+      point3(
+        values[0],
+        values[1]
+      );
+
+    pc =
+      point3(
+        values[2],
+        values[3]
+      );
+
+    p1 =
+      point3(
+        values[4],
+        values[5]
+      );
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  const samples = [];
+
+
+  const SAMPLE_COUNT = 120;
+
+
+  for(
+    let i=0;
+    i<=SAMPLE_COUNT;
+    i++
+  ){
+
+    const t =
+      i/SAMPLE_COUNT;
+
+    const u =
+      1-t;
+
+
+    samples.push({
+
+      x:
+        u*u*p0.x+
+        2*u*t*pc.x+
+        t*t*p1.x,
+
+      y:
+        u*u*p0.y+
+        2*u*t*pc.y+
+        t*t*p1.y,
+
+      z:
+        u*u*p0.z+
+        2*u*t*pc.z+
+        t*t*p1.z
+
+    });
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"curve",
+
+      samples,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1.2
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   CUBIC BEZIER
+   ============================================================ */
+
+async function drawBezier(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 8
+  ){
+
+    throw new Error(
+      "bezier requires 8 or 12 coordinates"
+    );
+
+  }
+
+
+  let p0;
+  let c1;
+  let c2;
+  let p1;
+
+
+  if(
+    values.length >= 12
+  ){
+
+    p0 =
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      );
+
+    c1 =
+      point3(
+        values[3],
+        values[4],
+        values[5]
+      );
+
+    c2 =
+      point3(
+        values[6],
+        values[7],
+        values[8]
+      );
+
+    p1 =
+      point3(
+        values[9],
+        values[10],
+        values[11]
+      );
+
+  }
+  else{
+
+    p0 =
+      point3(
+        values[0],
+        values[1]
+      );
+
+    c1 =
+      point3(
+        values[2],
+        values[3]
+      );
+
+    c2 =
+      point3(
+        values[4],
+        values[5]
+      );
+
+    p1 =
+      point3(
+        values[6],
+        values[7]
+      );
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  const samples = [];
+
+  const SAMPLE_COUNT = 160;
+
+
+  for(
+    let i=0;
+    i<=SAMPLE_COUNT;
+    i++
+  ){
+
+    const t =
+      i/SAMPLE_COUNT;
+
+    const u =
+      1-t;
+
+
+    samples.push({
+
+      x:
+        u*u*u*p0.x+
+        3*u*u*t*c1.x+
+        3*u*t*t*c2.x+
+        t*t*t*p1.x,
+
+      y:
+        u*u*u*p0.y+
+        3*u*u*t*c1.y+
+        3*u*t*t*c2.y+
+        t*t*t*p1.y,
+
+      z:
+        u*u*u*p0.z+
+        3*u*u*t*c1.z+
+        3*u*t*t*c2.z+
+        t*t*t*p1.z
+
+    });
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"curve",
+
+      samples,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1.5
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   CYLINDER
+   ============================================================ */
+
+async function drawCylinder(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 5
+  ){
+
+    throw new Error(
+      "cylinder requires x y z radius height"
+    );
+
+  }
+
+
+  const center =
+    point3(
+      values[0],
+      values[1],
+      values[2]
+    );
+
+
+  const radius =
+    values[3];
+
+  const height =
+    values[4];
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  const geometry =
+    cylinderGeometry(
+      center,
+      radius,
+      height,
+      72
+    );
+
+
+  const geometryPoints = [
+
+    ...geometry.bottom,
+
+    ...geometry.top
+
+  ];
+
+
+  await addAnimatedObject(
+
+    {
+      type:"cylinder",
+
+      center,
+
+      radius,
+
+      height,
+
+      geometry,
+
+      geometryPoints,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1.8
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   CONE
+   ============================================================ */
+
+async function drawCone(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 5
+  ){
+
+    throw new Error(
+      "cone requires x y z radius height"
+    );
+
+  }
+
+
+  const center =
+    point3(
+      values[0],
+      values[1],
+      values[2]
+    );
+
+
+  const radius =
+    values[3];
+
+  const height =
+    values[4];
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  const geometry =
+    coneGeometry(
+      center,
+      radius,
+      height,
+      72
+    );
+
+
+  const geometryPoints = [
+
+    ...geometry.base,
+
+    geometry.apex
+
+  ];
+
+
+  await addAnimatedObject(
+
+    {
+      type:"cone",
+
+      center,
+
+      radius,
+
+      height,
+
+      geometry,
+
+      geometryPoints,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      1.8
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   TEXT
+   ============================================================ */
+
+async function drawText(args){
+
+  if(
+    args.length < 3
+  ){
+
+    throw new Error(
+      'text requires x y "text"'
+    );
+
+  }
+
+
+  const x =
+    number(
+      args[0]
+    );
+
+  const y =
+    number(
+      args[1]
+    );
+
+
+  const text =
+    stripQuotes(
+      args[2]
+    );
+
+
+  let z = 0;
+
+  let color = "#fff";
+
+  let font =
+    "24px sans-serif";
+
+  let align =
+    "left";
+
+  let baseline =
+    "alphabetic";
+
+  let glow = 0;
+
+  let opacity = 1;
+
+
+  let start = 3;
+
+
+  if(
+    isNumberToken(
+      args[3]
+    )
+  ){
+
+    z =
+      number(
+        args[3]
+      );
+
+    start = 4;
+
+  }
+
+
+  for(
+    const token of
+    args.slice(start)
+  ){
+
+    if(
+      isColor(token)
+    ){
+
+      color = token;
+
+      continue;
+
+    }
+
+
+    if(
+      isFont(token)
+    ){
+
+      font =
+        stripQuotes(
+          token
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "color="
+      )
+    ){
+
+      color =
+        stripQuotes(
+          token.slice(6)
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "font="
+      )
+    ){
+
+      font =
+        stripQuotes(
+          token.slice(5)
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "align="
+      )
+    ){
+
+      align =
+        token.slice(6);
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "baseline="
+      )
+    ){
+
+      baseline =
+        token.slice(9);
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "glow="
+      )
+    ){
+
+      glow =
+        number(
+          token.slice(5),
+          0
+        );
+
+      continue;
+
+    }
+
+
+    if(
+      token.startsWith(
+        "opacity="
+      )
+    ){
+
+      opacity =
+        clamp(
+          number(
+            token.slice(8),
+            1
+          ),
+          0,
+          1
+        );
+
+    }
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"text",
+
+      position:
+        point3(
+          x,
+          y,
+          z
+        ),
+
+      text,
+
+      color,
+
+      font,
+
+      align,
+
+      baseline,
+
+      glow,
+
+      opacity
+
+    },
+
+    .4,
+
+    "out"
+
+  );
+
+}
+
+
+/* ============================================================
+   HIGHLIGHT
+   ============================================================ */
+
+async function drawHighlight(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 3
+  ){
+
+    throw new Error(
+      "highlight requires x y radius"
+    );
+
+  }
+
+
+  let center;
+
+  let radius;
+
+
+  if(
+    values.length >= 4
+  ){
+
+    center =
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      );
+
+    radius =
+      values[3];
+
+  }
+  else{
+
+    center =
+      point3(
+        values[0],
+        values[1]
+      );
+
+    radius =
+      values[2];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  if(
+    !args
+      .slice(index)
+      .some(isColor)
+  ){
+
+    style.color =
+      "yellow";
+
+    style.glowColor =
+      "yellow";
+
+  }
+
+
+  style.glow =
+    style.glow ||
+    15;
+
+
+  await addAnimatedObject(
+
+    {
+      type:"highlight",
+
+      center,
+
+      radius,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      .7
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   CROSS
+   ============================================================ */
+
+async function drawCross(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 3
+  ){
+
+    throw new Error(
+      "cross requires x y radius"
+    );
+
+  }
+
+
+  let center;
+
+  let radius;
+
+
+  if(
+    values.length >= 4
+  ){
+
+    center =
+      point3(
+        values[0],
+        values[1],
+        values[2]
+      );
+
+    radius =
+      values[3];
+
+  }
+  else{
+
+    center =
+      point3(
+        values[0],
+        values[1]
+      );
+
+    radius =
+      values[2];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  await addAnimatedObject(
+
+    {
+      type:"cross",
+
+      center,
+
+      radius,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      .5
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   BRACKET
+   ============================================================ */
+
+async function drawBracket(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 4
+  ){
+
+    throw new Error(
+      "bracket requires x y width height"
+    );
+
+  }
+
+
+  let x =
+    values[0];
+
+  let y =
+    values[1];
+
+  let z = 0;
+
+  let width;
+
+  let height;
+
+
+  if(
+    values.length >= 5
+  ){
+
+    z =
+      values[2];
+
+    width =
+      values[3];
+
+    height =
+      values[4];
+
+  }
+  else{
+
+    width =
+      values[2];
+
+    height =
+      values[3];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  await addAnimatedObject(
+
+    {
+      type:"bracket",
+
+      x,
+
+      y,
+
+      z,
+
+      width,
+
+      height,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      .8
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   GRID
+   ============================================================ */
+
+async function drawGrid(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  if(
+    values.length < 5
+  ){
+
+    throw new Error(
+      "grid requires x y cellSize rows cols"
+    );
+
+  }
+
+
+  let x =
+    values[0];
+
+  let y =
+    values[1];
+
+  let z = 0;
+
+  let cell;
+
+  let rows;
+
+  let cols;
+
+
+  if(
+    values.length >= 6
+  ){
+
+    z =
+      values[2];
+
+    cell =
+      values[3];
+
+    rows =
+      Math.floor(
+        values[4]
+      );
+
+    cols =
+      Math.floor(
+        values[5]
+      );
+
+  }
+  else{
+
+    cell =
+      values[2];
+
+    rows =
+      Math.floor(
+        values[3]
+      );
+
+    cols =
+      Math.floor(
+        values[4]
+      );
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  await addAnimatedObject(
+
+    {
+      type:"grid",
+
+      x,
+
+      y,
+
+      z,
+
+      cell,
+
+      rows,
+
+      cols,
+
+      style
+
+    },
+
+    animationTime(
+      style,
+      .5
+    )/1000,
+
+    style.ease
+
+  );
+
+}
+
+
+/* ============================================================
+   AXES
+   ============================================================ */
+
+async function drawAxes(args){
+
+  const values = [];
+
+  let index = 0;
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  let ox =
+    WIDTH/2;
+
+  let oy =
+    HEIGHT/2;
+
+  let oz = 0;
+
+  let length = 250;
+
+
+  if(
+    values.length >= 4
+  ){
+
+    ox =
+      values[0];
+
+    oy =
+      values[1];
+
+    oz =
+      values[2];
+
+    length =
+      values[3];
+
+  }
+  else if(
+    values.length >= 3
+  ){
+
+    ox =
+      values[0];
+
+    oy =
+      values[1];
+
+    length =
+      values[2];
+
+  }
+
+
+  const style =
+    createStyle(
+      args.slice(index)
+    );
+
+
+  await drawArrow([
+    String(ox),
+    String(oy),
+    String(oz),
+    String(ox+length),
+    String(oy),
+    String(oz),
+    style.color,
+    `${style.speed}x`,
+    `width=${style.width}`,
+    `glow=${style.glow}`
+  ]);
+
+
+  await drawArrow([
+    String(ox),
+    String(oy),
+    String(oz),
+    String(ox),
+    String(oy-length),
+    String(oz),
+    style.color,
+    `${style.speed}x`,
+    `width=${style.width}`,
+    `glow=${style.glow}`
+  ]);
+
+
+  await drawArrow([
+    String(ox),
+    String(oy),
+    String(oz),
+    String(ox),
+    String(oy),
+    String(oz+length),
+    style.color,
+    `${style.speed}x`,
+    `width=${style.width}`,
+    `glow=${style.glow}`
+  ]);
+
+}
+
+
+/* ============================================================
+   IMAGE
+   ============================================================ */
+
+async function drawImage(args){
+
+  if(
+    args.length < 1
+  ){
+
+    throw new Error(
+      'image requires "URL" x y width height'
+    );
+
+  }
+
+
+  const src =
+    stripQuotes(
+      args[0]
+    );
+
+
+  let index = 1;
+
+
+  const values = [];
+
+
+  while(
+    index < args.length &&
+    isNumberToken(
+      args[index]
+    )
+  ){
+
+    values.push(
+      number(
+        args[index]
+      )
+    );
+
+    index++;
+
+  }
+
+
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  let width = null;
+  let height = null;
+
+
+  if(
+    values.length >= 5
+  ){
+
+    x =
+      values[0];
+
+    y =
+      values[1];
+
+    z =
+      values[2];
+
+    width =
+      values[3];
+
+    height =
+      values[4];
+
+  }
+  else{
+
+    x =
+      values[0] || 0;
+
+    y =
+      values[1] || 0;
+
+    width =
+      values[2] ?? null;
+
+    height =
+      values[3] ?? null;
+
+  }
+
+
+  let opacity = 1;
+
+
+  for(
+    const token of
+    args.slice(index)
+  ){
+
+    if(
+      token.startsWith(
+        "opacity="
+      )
+    ){
+
+      opacity =
+        clamp(
+          number(
+            token.slice(8),
+            1
+          ),
+          0,
+          1
+        );
+
+    }
+
+  }
+
+
+  const image =
+    new Image();
+
+
+  image.src =
+    src;
+
+
+  await new Promise(
+    (resolve,reject) => {
+
+      image.onload =
+        resolve;
+
+      image.onerror =
+        () =>
+          reject(
+            new Error(
+              "image failed to load"
+            )
+          );
+
+    }
+  );
+
+
+  if(width == null){
+
+    width =
+      image.width;
+
+  }
+
+
+  if(height == null){
+
+    height =
+      image.height;
+
+  }
+
+
+  await addAnimatedObject(
+
+    {
+      type:"image",
+
+      position:
+        point3(
+          x,
+          y,
+          z
+        ),
+
+      width,
+
+      height,
+
+      opacity,
+
+      image
+
+    },
+
+    .5,
+
+    "out"
+
+  );
+
+}
+
+
+/* ============================================================
+   CLEAR
+   ============================================================ */
+
+function clearCanvas(){
+
+  scene.length = 0;
+
+  renderScene();
+
+}
+
+
+/* ============================================================
+   COMMAND EXECUTOR
+   ============================================================ */
+
+async function executeCommand(
+  command
+){
+
+  const parsed =
+    parseCommand(
+      command
+    );
+
+
+  if(!parsed){
+
+    return;
+
+  }
+
+
+  switch(
+    parsed.name
+  ){
+
+    case "point":
+    case "dot":
+
+      await drawPoint(
+        parsed.args
+      );
+
+      break;
+
+
+    case "line":
+
+      await drawLine(
+        parsed.args
+      );
+
+      break;
+
+
+    case "arrow":
+
+      await drawArrow(
+        parsed.args
+      );
+
+      break;
+
+
+    case "circle":
+
+      await drawCircle(
+        parsed.args
+      );
+
+      break;
+
+
+    case "ellipse":
+
+      await drawEllipse(
+        parsed.args
+      );
+
+      break;
+
+
+    case "arc":
+
+      await drawArc(
+        parsed.args
+      );
+
+      break;
+
+
+    case "rect":
+    case "rectangle":
+
+      await drawRectangle(
+        parsed.args
+      );
+
+      break;
+
+
+    case "roundrect":
+
+      await drawRoundRect(
+        parsed.args
+      );
+
+      break;
+
+
+    case "triangle":
+
+      await drawPolygon(
+        parsed.args,
+        true
+      );
+
+      break;
+
+
+    case "polygon":
+
+      await drawPolygon(
+        parsed.args,
+        true
+      );
+
+      break;
+
+
+    case "polyline":
+
+      await drawPolygon(
+        parsed.args,
+        false
+      );
+
+      break;
+
+
+    case "quadratic":
+
+      await drawQuadratic(
+        parsed.args
+      );
+
+      break;
+
+
+    case "bezier":
+    case "cubic":
+
+      await drawBezier(
+        parsed.args
+      );
+
+      break;
+
+
+    case "cylinder":
+
+      await drawCylinder(
+        parsed.args
+      );
+
+      break;
+
+
+    case "cone":
+
+      await drawCone(
+        parsed.args
+      );
+
+      break;
+
+
+    case "text":
+    case "label":
+
+      await drawText(
+        parsed.args
+      );
+
+      break;
+
+
+    case "highlight":
+
+      await drawHighlight(
+        parsed.args
+      );
+
+      break;
+
+
+    case "cross":
+
+      await drawCross(
+        parsed.args
+      );
+
+      break;
+
+
+    case "bracket":
+
+      await drawBracket(
+        parsed.args
+      );
+
+      break;
+
+
+    case "grid":
+
+      await drawGrid(
+        parsed.args
+      );
+
+      break;
+
+
+    case "axes":
+
+      await drawAxes(
+        parsed.args
+      );
+
+      break;
+
+
+    case "image":
+
+      await drawImage(
+        parsed.args
+      );
+
+      break;
+
+
+    case "clear":
+
+      clearCanvas();
+
+      break;
+
+
+    case "wait":
+
+      await sleep(
+        number(
+          parsed.args[0],
+          1
+        ) * 1000
+      );
+
+      break;
+
+
+    default:
+
+      throw new Error(
+        "Unknown command: " +
+        parsed.name
+      );
+
+  }
+
+}
+
+
+/* ============================================================
+   SCRIPT PARSER
+   ============================================================ */
+
+function parseScript(source){
+
+  const regex =
+    /\\\(([\s\S]*?)\\\)/g;
+
+
+  const parts = [];
+
+  let last = 0;
+
+  let match;
+
+
+  while(
+    (match =
+      regex.exec(source))
+  ){
+
+    const speech =
+      source.slice(
+        last,
+        match.index
+      );
+
+
+    if(
+      speech.trim()
+    ){
+
+      parts.push({
+
+        type:"speech",
+
+        text:speech
+
+      });
+
+    }
+
+
+    parts.push({
+
+      type:"draw",
+
+      command:
+        match[1].trim()
+
+    });
+
+
+    last =
+      regex.lastIndex;
+
+  }
+
+
+  const remaining =
+    source.slice(
+      last
+    );
+
+
+  if(
+    remaining.trim()
+  ){
+
+    parts.push({
+
+      type:"speech",
+
+      text:remaining
+
+    });
+
+  }
+
+
+  return parts;
+
+}
+
+
+/* ============================================================
+   TTS
+   ============================================================ */
+
+function speak(text){
+
+  const clean =
+    text
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
+
+
+  if(!clean){
+
+    return Promise.resolve();
+
+  }
+
+
+  return new Promise(
+    resolve => {
+
+      const utterance =
+        new SpeechSynthesisUtterance(
+          clean
+        );
+
+
+      utterance.rate = 1;
+
+      utterance.pitch = 1;
+
+
+      utterance.onend =
+        resolve;
+
+      utterance.onerror =
+        resolve;
+
+
+      speechSynthesis.speak(
+        utterance
+      );
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   PLAY SCRIPT
+   ============================================================ */
+
+async function play(
+  source
+){
+
+  stopped = false;
+
+
+  hint.style.display =
+    "none";
+
+
+  stopButton.style.display =
+    "block";
+
+
+  status.textContent =
+    "playing · camera independent of world";
+
+
+  clearCanvas();
+
+
+  const parts =
+    parseScript(
+      source
+    );
+
+
+  for(
+    const part of parts
+  ){
+
+    if(stopped){
+
+      break;
+
+    }
+
+
+    if(
+      part.type ===
+      "speech"
+    ){
+
+      await speak(
+        part.text
+      );
+
+      continue;
+
+    }
+
+
+    if(
+      part.type ===
+      "draw"
+    ){
+
+      status.textContent =
+        "drawing: " +
+        part.command;
+
+
+      let drawing;
+
+
+      try{
+
+        drawing =
+          executeCommand(
+            part.command
+          );
+
+      }
+      catch(error){
+
+        status.textContent =
+          "error: " +
+          error.message;
+
+        continue;
+
+      }
+
+
+      const beat =
+        sleep(
+          2000
+        );
+
+
+      await Promise.all([
+
+        drawing.catch(
+          error => {
+
+            status.textContent =
+              "draw error: " +
+              error.message;
+
+          }
+        ),
+
+        beat
+
+      ]);
+
+    }
+
+  }
+
+
+  stopButton.style.display =
+    "none";
+
+
+  status.textContent =
+    stopped
+      ? "stopped"
+      : "finished";
+
+}
+
+
+/* ============================================================
+   SEND
+   ============================================================ */
+
+send.addEventListener(
+  "click",
+  () => {
+
+    const source =
+      input.value.trim();
+
+
+    if(source){
+
+      play(
+        source
+      );
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   STOP
+   ============================================================ */
+
+stopButton.addEventListener(
+  "click",
+  () => {
+
+    stopped = true;
+
+    speechSynthesis.cancel();
+
+    stopButton.style.display =
+      "none";
+
+    status.textContent =
+      "stopped";
+
+  }
+);
+
+
+/* ============================================================
+   ENTER = SEND
+   SHIFT+ENTER = NEWLINE
+   ============================================================ */
+
+input.addEventListener(
+  "keydown",
+  event => {
+
+    if(
+      event.key === "Enter" &&
+      !event.shiftKey
+    ){
+
+      event.preventDefault();
+
+      send.click();
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   ESCAPE = STOP
+   ============================================================ */
+
+window.addEventListener(
+  "keydown",
+  event => {
+
+    if(
+      event.key === "Escape"
+    ){
+
+      stopped = true;
+
+      speechSynthesis.cancel();
+
+      stopButton.style.display =
+        "none";
+
+      status.textContent =
+        "stopped";
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   CAMERA GESTURES
+   ============================================================ */
+
+const pointers =
+  new Map();
+
+
+let previousPinchDistance = null;
+
+let previousPinchMidpoint = null;
+
+
+const ORBIT_SENSITIVITY =
+  .008;
+
+const PAN_SENSITIVITY =
+  1;
+
+
+/* ============================================================
+   POINTER POSITION
+   ============================================================ */
+
+function pointerPosition(
+  event
+){
+
+  const rect =
+    canvas.getBoundingClientRect();
+
+
+  return {
+
+    x:
+      event.clientX -
+      rect.left,
+
+    y:
+      event.clientY -
+      rect.top
+
+  };
+
+}
+
+
+/* ============================================================
+   SHOW TOUCH CIRCLE
+   ============================================================ */
+
+function showIndicator(
+  x,
+  y
+){
+
+  cameraIndicator.style.left =
+    x + "px";
+
+  cameraIndicator.style.top =
+    y + "px";
+
+  cameraIndicator.style.display =
+    "block";
+
+}
+
+
+function hideIndicator(){
+
+  cameraIndicator.style.display =
+    "none";
+
+}
+
+
+/* ============================================================
+   DISTANCE BETWEEN POINTERS
+   ============================================================ */
+
+function pointerDistance(
+  a,
+  b
+){
+
+  return Math.hypot(
+    a.x-b.x,
+    a.y-b.y
+  );
+
+}
+
+
+function pointerMidpoint(
+  a,
+  b
+){
+
+  return {
+
+    x:
+      (a.x+b.x)/2,
+
+    y:
+      (a.y+b.y)/2
+
+  };
+
+}
+
+
+/* ============================================================
+   POINTER DOWN
+   ============================================================ */
+
+canvas.addEventListener(
+  "pointerdown",
+  event => {
+
+    canvas.setPointerCapture(
+      event.pointerId
+    );
+
+
+    const p =
+      pointerPosition(
+        event
+      );
+
+
+    pointers.set(
+      event.pointerId,
+      p
+    );
+
+
+    canvas.classList.add(
+      "dragging"
+    );
+
+
+    showIndicator(
+      p.x,
+      p.y
+    );
+
+
+    if(
+      pointers.size === 2
+    ){
+
+      const values =
+        [...pointers.values()];
+
+
+      previousPinchDistance =
+        pointerDistance(
+          values[0],
+          values[1]
+        );
+
+
+      previousPinchMidpoint =
+        pointerMidpoint(
+          values[0],
+          values[1]
+        );
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   POINTER MOVE
+   ============================================================ */
+
+canvas.addEventListener(
+  "pointermove",
+  event => {
+
+    if(
+      !pointers.has(
+        event.pointerId
+      )
+    ){
+
+      return;
+
+    }
+
+
+    const p =
+      pointerPosition(
+        event
+      );
+
+
+    pointers.set(
+      event.pointerId,
+      p
+    );
+
+
+    showIndicator(
+      p.x,
+      p.y
+    );
+
+
+    if(
+      pointers.size === 1
+    ){
+
+      const dx =
+        event.movementX ||
+        0;
+
+      const dy =
+        event.movementY ||
+        0;
+
+
+      camera.yaw -=
+        dx *
+        ORBIT_SENSITIVITY;
+
+      camera.pitch -=
+        dy *
+        ORBIT_SENSITIVITY;
+
+
+      camera.pitch =
+        clamp(
+          camera.pitch,
+          MIN_PITCH,
+          MAX_PITCH
+        );
+
+
+      renderScene();
+
+    }
+
+
+    if(
+      pointers.size === 2
+    ){
+
+      const values =
+        [...pointers.values()];
+
+
+      const distance =
+        pointerDistance(
+          values[0],
+          values[1]
+        );
+
+
+      const midpoint =
+        pointerMidpoint(
+          values[0],
+          values[1]
+        );
+
+
+      if(
+        previousPinchDistance != null
+      ){
+
+        const ratio =
+          distance /
+          previousPinchDistance;
+
+
+        if(
+          Number.isFinite(
+            ratio
+          ) &&
+          ratio > 0
+        ){
+
+          camera.zoom =
+            clamp(
+              camera.zoom *
+              ratio,
+              MIN_ZOOM,
+              MAX_ZOOM
+            );
+
+        }
+
+      }
+
+
+      if(
+        previousPinchMidpoint
+      ){
+
+        const dx =
+          midpoint.x -
+          previousPinchMidpoint.x;
+
+        const dy =
+          midpoint.y -
+          previousPinchMidpoint.y;
+
+
+        const cos =
+          Math.cos(
+            camera.roll
+          );
+
+        const sin =
+          Math.sin(
+            camera.roll
+          );
+
+
+        const worldDX =
+          (
+            dx*cos +
+            dy*sin
+          ) /
+          camera.zoom;
+
+
+        const worldDY =
+          (
+            -dx*sin +
+            dy*cos
+          ) /
+          camera.zoom;
+
+
+        camera.target.x -=
+          worldDX;
+
+        camera.target.y -=
+          worldDY;
+
+      }
+
+
+      previousPinchDistance =
+        distance;
+
+      previousPinchMidpoint =
+        midpoint;
+
+
+      renderScene();
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   POINTER UP
+   ============================================================ */
+
+function pointerEnd(
+  event
+){
+
+  pointers.delete(
+    event.pointerId
+  );
+
+
+  if(
+    pointers.size < 2
+  ){
+
+    previousPinchDistance =
+      null;
+
+    previousPinchMidpoint =
+      null;
+
+  }
+
+
+  if(
+    pointers.size === 0
+  ){
+
+    canvas.classList.remove(
+      "dragging"
+    );
+
+    hideIndicator();
+
+  }
+
+}
+
+
+canvas.addEventListener(
+  "pointerup",
+  pointerEnd
+);
+
+
+canvas.addEventListener(
+  "pointercancel",
+  pointerEnd
+);
+
+
+canvas.addEventListener(
+  "pointerleave",
+  event => {
+
+    if(
+      pointers.size === 0
+    ){
+
+      hideIndicator();
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   MOUSE WHEEL = ZOOM
+   ============================================================ */
+
+canvas.addEventListener(
+  "wheel",
+  event => {
+
+    event.preventDefault();
+
+
+    const factor =
+      Math.exp(
+        -event.deltaY *
+        .001
+      );
+
+
+    camera.zoom =
+      clamp(
+        camera.zoom *
+        factor,
+        MIN_ZOOM,
+        MAX_ZOOM
+      );
+
+
+    renderScene();
+
+  },
+  {
+    passive:false
+  }
+);
+
+
+/* ============================================================
+   DOUBLE CLICK = RESET CAMERA
+   ============================================================ */
+
+canvas.addEventListener(
+  "dblclick",
+  () => {
+
+    camera.yaw = 0;
+
+    camera.pitch = 0;
+
+    camera.roll = 0;
+
+    camera.zoom = 1;
+
+    camera.target.x =
+      WIDTH/2;
+
+    camera.target.y =
+      HEIGHT/2;
+
+    camera.target.z =
+      0;
+
+
+    renderScene();
+
+
+    status.textContent =
+      "camera reset · world unchanged";
+
+  }
+);
+
+
+/* ============================================================
+   CAMERA STATUS
+   ============================================================ */
+
+setInterval(
+  () => {
+
+    if(
+      pointers.size === 0
+    ){
+
+      const yaw =
+        (
+          camera.yaw *
+          180 /
+          Math.PI
+        ).toFixed(1);
+
+      const pitch =
+        (
+          camera.pitch *
+          180 /
+          Math.PI
+        ).toFixed(1);
+
+
+      if(
+        !stopButton ||
+        stopButton.style.display ===
+        "none"
+      ){
+
+        status.textContent =
+          `camera · yaw ${yaw}° · pitch ${pitch}° · zoom ${camera.zoom.toFixed(2)}×`;
+
+      }
+
+    }
+
+  },
+  250
+);
+
+
+/* ============================================================
+   INITIAL RENDER
+   ============================================================ */
+
+renderScene();
+
+</script>
+
+</body>
+</html>
