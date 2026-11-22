@@ -45,6 +45,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   const [speed, setSpeed] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [deckTab, setDeckTab] = useState<'script' | 'timeline'>('script');
+  const [notice, setNotice] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<EngineSnapshot>({
     playback: 'idle',
     activePartIndex: -1,
@@ -109,6 +110,19 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instantTrigger]);
 
+  // React's onWheel is passive, so it cannot stop the page from scrolling while
+  // the user zooms the canvas. Attach a native, non-passive listener instead.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      engineRef.current?.zoomByFactor(Math.exp(-e.deltaY * 0.001));
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, []);
+
   useEffect(() => {
     engineRef.current?.setSpeechEnabled(speechEnabled);
   }, [speechEnabled]);
@@ -143,14 +157,19 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
   };
 
   const handlePasteClipboard = async () => {
+    setNotice(null);
     try {
       const text = await navigator.clipboard.readText();
-      if (!text.trim()) return;
+      if (!text.trim()) {
+        setNotice('Your clipboard is empty. Copy a ChatGPT or Claude reply first.');
+        return;
+      }
       const { script: extracted } = extractDrawScriptFromResponse(text);
       onScriptChange(extracted);
       engineRef.current?.play(extracted, { instant: false });
     } catch {
-      // Clipboard access denied or unavailable
+      setNotice('Clipboard access was blocked. Paste into the Script Editor with Ctrl/Cmd+V instead.');
+      setDeckTab('script');
     }
   };
 
@@ -210,10 +229,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
     }
   };
 
-  const onWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    engineRef.current?.zoomByFactor(Math.exp(-e.deltaY * 0.001));
-  };
-
   const isPlaying = snapshot.playback === 'playing';
 
   return (
@@ -222,7 +237,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       <section className="lg:col-span-7 xl:col-span-8 flex flex-col bg-[#0F172A] border border-slate-800 rounded-xl overflow-hidden">
         {/* Stage Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-[#111827]">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {!isPlaying ? (
               <button
                 type="button"
@@ -284,13 +299,18 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              role="group"
+              aria-label="Playback speed"
+              className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-0.5"
+            >
               {[0.75, 1, 1.5, 2].map((val) => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => setSpeed(val)}
+                  aria-pressed={speed === val}
                   className={`px-2 py-1 text-xs font-mono tabular-nums rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                     speed === val
                       ? 'bg-slate-700 text-white font-semibold'
@@ -326,7 +346,6 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUpOrCancel}
             onPointerCancel={onPointerUpOrCancel}
-            onWheel={onWheel}
             onDoubleClick={handleResetCamera}
             className={`w-full h-full block touch-none ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
@@ -364,11 +383,28 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
           )}
         </div>
 
+        {notice && (
+          <div
+            role="status"
+            className="flex items-start justify-between gap-3 px-4 py-2 border-t border-amber-500/30 bg-amber-500/10 text-xs text-amber-200"
+          >
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss message"
+              className="text-amber-300 hover:text-white cursor-pointer shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Stage Footer Readout */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-slate-800 bg-[#0F172A] text-xs text-slate-400">
-          <span className="font-mono truncate max-w-md">{snapshot.statusMessage}</span>
+          <span className="font-mono truncate max-w-full sm:max-w-md">{snapshot.statusMessage}</span>
           {snapshot.errorMessage ? (
-            <span className="text-amber-400 font-medium">{snapshot.errorMessage}</span>
+            <span role="alert" className="text-amber-400 font-medium">{snapshot.errorMessage}</span>
           ) : (
             <span className="tabular-nums">
               {commandCount} draw commands · {parsedParts.length} total steps
@@ -381,8 +417,11 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
       <aside className="lg:col-span-5 xl:col-span-4 flex flex-col bg-[#0F172A] border border-slate-800 rounded-xl overflow-hidden">
         {/* Preset Lesson Selector */}
         <div className="p-4 border-b border-slate-800">
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-sm font-semibold text-slate-100">Interactive Lessons</h2>
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <h2 className="text-sm font-semibold text-slate-100">
+              Interactive Lessons{' '}
+              <span className="font-normal text-slate-500 tabular-nums">({LESSON_PRESETS.length})</span>
+            </h2>
             <button
               type="button"
               onClick={handlePasteClipboard}
@@ -392,13 +431,14 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
               Paste ChatGPT Reply
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 lg:max-h-72 lg:overflow-y-auto lg:pr-1">
             {LESSON_PRESETS.map((preset) => {
               const isSelected = script.trim() === preset.script.trim();
               return (
                 <button
                   key={preset.id}
                   type="button"
+                  aria-pressed={isSelected}
                   onClick={() => {
                     onScriptChange(preset.script);
                     if (preset.isoView) {
@@ -458,6 +498,12 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
             <textarea
               value={script}
               onChange={(e) => onScriptChange(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  handlePlay();
+                }
+              }}
               spellCheck={false}
               aria-label="DrawScript source editor"
               placeholder='Paste ChatGPT output or type narration + \(circle 400 300 80 cyan\)'
@@ -473,6 +519,7 @@ export const CanvasStage: React.FC<CanvasStageProps> = ({
                 className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
               >
                 Run Script on 3D Canvas
+                <span className="hidden xl:inline text-sky-200/70 font-normal ml-1.5">Ctrl+Enter</span>
               </button>
             </div>
           </div>

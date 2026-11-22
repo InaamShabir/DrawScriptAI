@@ -1,3 +1,5 @@
+import { compileExpression } from './mathExpr';
+
 export interface Point3 {
   x: number;
   y: number;
@@ -52,7 +54,26 @@ export interface EngineSnapshot {
 }
 
 const COLORS =
-  /^(red|green|blue|yellow|orange|purple|pink|white|black|cyan|magenta|lime|gold|gray|grey|brown|navy|teal|aqua|maroon|silver)$/i;
+  /^(red|green|blue|yellow|orange|purple|pink|white|black|cyan|magenta|lime|gold|gray|grey|brown|navy|teal|aqua|maroon|silver|indigo|violet|coral|salmon|crimson|olive|turquoise|skyblue|lightblue|orchid|tomato|khaki|plum|slategray|slategrey|transparent)$/i;
+
+/** Default categorical palette for pie slices and bar charts. */
+const PALETTE = [
+  '#38bdf8',
+  '#f59e0b',
+  '#34d399',
+  '#f472b6',
+  '#a78bfa',
+  '#fb7185',
+  '#facc15',
+  '#2dd4bf',
+];
+
+function withAlpha(color: string, alpha: number): string {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color);
+  if (!hex) return color;
+  const n = parseInt(hex[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -83,6 +104,49 @@ function isNumberToken(value: string | undefined): boolean {
 function point3(x: number, y: number, z = 0): Point3 {
   return { x: toNum(x), y: toNum(y), z: toNum(z) };
 }
+
+/** Reads a numeric `key=value` option (first matching key wins). */
+function optNum(tokens: string[], keys: string[], fallback: number): number {
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+    for (const key of keys) {
+      if (lower.startsWith(`${key}=`)) {
+        const n = Number(stripQuotes(token.slice(key.length + 1)));
+        if (Number.isFinite(n)) return n;
+      }
+    }
+  }
+  return fallback;
+}
+
+/** Reads a string `key=value` option. */
+function optStr(tokens: string[], keys: string[]): string | null {
+  for (const token of tokens) {
+    const lower = token.toLowerCase();
+    for (const key of keys) {
+      if (lower.startsWith(`${key}=`)) return stripQuotes(token.slice(key.length + 1));
+    }
+  }
+  return null;
+}
+
+/** True for a bare flag token (e.g. `square`) or `name=on|true|yes`. */
+function hasFlag(tokens: string[], name: string): boolean {
+  return tokens.some((t) => {
+    const lower = t.toLowerCase();
+    if (lower === name) return true;
+    if (!lower.startsWith(`${name}=`)) return false;
+    return /^(on|true|yes|1)$/.test(lower.slice(name.length + 1));
+  });
+}
+
+/** True when a `name=off|false|no|0` option disables something. */
+function isOff(tokens: string[], name: string): boolean {
+  const v = optStr(tokens, [name]);
+  return v != null && /^(off|false|no|0)$/i.test(v);
+}
+
+const DEG = Math.PI / 180;
 
 function tokenize(command: string): string[] {
   const tokens: string[] = [];
@@ -374,6 +438,19 @@ interface SceneObject {
   image?: HTMLImageElement;
   geometry?: any;
   geometryPoints?: Point3[];
+  /** Draw an arrowhead at the start of a line too (doublearrow). */
+  arrowStart?: boolean;
+  /** Compound objects: several stroked paths animated one after another. */
+  paths?: MultiPath[];
+  /** Optional filled faces drawn behind the edges (cube, box, pyramid). */
+  faces?: { points: Point3[]; fill: string }[];
+}
+
+interface MultiPath {
+  points: Point3[];
+  closed?: boolean;
+  fill?: string | null;
+  color?: string;
 }
 
 export class DrawScriptEngine {
@@ -394,6 +471,7 @@ export class DrawScriptEngine {
   private caption = '';
   private statusMessage = 'Ready · 3D orthographic world';
   private errorMessage: string | null = null;
+  private bgColor = '#030712';
   private onUpdate?: (snapshot: EngineSnapshot) => void;
 
   private readonly MIN_ZOOM = 0.05;
@@ -564,6 +642,7 @@ export class DrawScriptEngine {
     this.instantMode = Boolean(options?.instant);
     this.errorMessage = null;
     this.playback = 'playing';
+    this.bgColor = '#030712';
     this.clear();
 
     // Auto-center camera target to standard 800x600 DrawScript drafting coordinate space
@@ -726,8 +805,8 @@ export class DrawScriptEngine {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.ctx.clearRect(0, 0, this.width, this.height);
 
-    // Subtle 3D drafting background
-    this.ctx.fillStyle = '#030712';
+    // 3D drafting background (changeable with the `background` command)
+    this.ctx.fillStyle = this.bgColor;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
     const sorted = this.scene.slice().sort((a, b) => this.objectDepth(a) - this.objectDepth(b));
@@ -812,26 +891,76 @@ export class DrawScriptEngine {
     if (object.type === 'line' && object.points && object.style) {
       this.drawProjectedPath(object.points, progress, false, object.style);
       if (object.arrow && progress >= 1 && object.points.length >= 2) {
-        const p = this.project(object.points[1]);
-        const q = this.project(object.points[0]);
-        const angle = Math.atan2(p.y - q.y, p.x - q.x);
         const head = (object.head ?? 12) * this.camera.zoom;
+        const heads: [Point3, Point3][] = [[object.points[0], object.points[1]]];
+        if (object.arrowStart) heads.push([object.points[1], object.points[0]]);
 
-        this.ctx.save();
-        this.applyStyle(object.style);
-        this.ctx.beginPath();
-        this.ctx.moveTo(p.x, p.y);
-        this.ctx.lineTo(p.x - head * Math.cos(angle - 0.55), p.y - head * Math.sin(angle - 0.55));
-        this.ctx.moveTo(p.x, p.y);
-        this.ctx.lineTo(p.x - head * Math.cos(angle + 0.55), p.y - head * Math.sin(angle + 0.55));
-        this.ctx.stroke();
-        this.ctx.restore();
+        for (const [from, tip] of heads) {
+          const p = this.project(tip);
+          const q = this.project(from);
+          const angle = Math.atan2(p.y - q.y, p.x - q.x);
+          this.ctx.save();
+          this.applyStyle(object.style);
+          this.ctx.beginPath();
+          this.ctx.moveTo(p.x, p.y);
+          this.ctx.lineTo(p.x - head * Math.cos(angle - 0.55), p.y - head * Math.sin(angle - 0.55));
+          this.ctx.moveTo(p.x, p.y);
+          this.ctx.lineTo(p.x - head * Math.cos(angle + 0.55), p.y - head * Math.sin(angle + 0.55));
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
       }
       return;
     }
 
     if (object.type === 'path' && object.points && object.style) {
       this.drawProjectedPath(object.points, progress, Boolean(object.closed), object.style);
+      return;
+    }
+
+    if (object.type === 'multipath' && object.paths && object.style) {
+      const style = object.style;
+
+      // Filled faces first (back to front) so edges stay crisp on top.
+      if (object.faces && object.faces.length && progress > 0) {
+        const faces = object.faces
+          .map((face) => {
+            const projected = this.projectedPoints(face.points);
+            const depth = projected.reduce((sum, p) => sum + p.depth, 0) / projected.length;
+            return { face, projected, depth };
+          })
+          .sort((a, b) => a.depth - b.depth);
+        this.ctx.save();
+        this.ctx.globalAlpha = style.opacity * progress;
+        for (const { face, projected } of faces) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(projected[0].x, projected[0].y);
+          for (let i = 1; i < projected.length; i++) {
+            this.ctx.lineTo(projected[i].x, projected[i].y);
+          }
+          this.ctx.closePath();
+          this.ctx.fillStyle = face.fill;
+          this.ctx.fill();
+        }
+        this.ctx.restore();
+      }
+
+      const total = object.paths.length;
+      const position = clamp(progress, 0, 1) * total;
+      const whole = Math.floor(position);
+      const fraction = position - whole;
+      for (let i = 0; i < total && i <= whole; i++) {
+        const local = i < whole ? 1 : fraction;
+        if (local <= 0) continue;
+        const entry = object.paths[i];
+        const pathStyle: DrawStyle = {
+          ...style,
+          color: entry.color ?? style.color,
+          glowColor: entry.color ?? style.glowColor,
+          fill: entry.fill ?? null,
+        };
+        this.drawProjectedPath(entry.points, local, Boolean(entry.closed), pathStyle);
+      }
       return;
     }
 
@@ -1128,6 +1257,89 @@ export class DrawScriptEngine {
     return { base, apex, sideFaces };
   }
 
+  /** Adds a label that is visible immediately (used by compound commands). */
+  private addStaticText(
+    x: number,
+    y: number,
+    z: number,
+    text: string,
+    color = '#94a3b8',
+    font = '13px Plus Jakarta Sans, sans-serif',
+    align: CanvasTextAlign = 'center',
+    baseline: CanvasTextBaseline = 'middle'
+  ) {
+    this.scene.push({
+      type: 'text',
+      progress: 1,
+      position: point3(x, y, z),
+      text,
+      color,
+      font,
+      align,
+      baseline,
+      glow: 0,
+      opacity: 1,
+    });
+    this.renderScene();
+  }
+
+  /** Animates a compound object made of several stroked paths (and optional faces). */
+  private addMultiPath(
+    paths: MultiPath[],
+    style: DrawStyle,
+    seconds: number,
+    faces?: { points: Point3[]; fill: string }[]
+  ): Promise<void> {
+    const points = paths.flatMap((p) => p.points);
+    return this.addAnimatedObject(
+      { type: 'multipath', progress: 0, paths, faces, points, style },
+      seconds,
+      style.ease
+    );
+  }
+
+  private animateCamera(
+    to: Partial<Pick<CameraState, 'yaw' | 'pitch' | 'roll' | 'zoom'>>,
+    seconds: number
+  ): Promise<void> {
+    const keys = Object.keys(to) as ('yaw' | 'pitch' | 'roll' | 'zoom')[];
+    const from = {
+      yaw: this.camera.yaw,
+      pitch: this.camera.pitch,
+      roll: this.camera.roll,
+      zoom: this.camera.zoom,
+    };
+    const apply = (t: number) => {
+      for (const key of keys) {
+        const target = to[key] as number;
+        this.camera[key] = from[key] + (target - from[key]) * t;
+      }
+      this.renderScene();
+      this.emitUpdate();
+    };
+
+    if (this.instantMode) {
+      apply(1);
+      return Promise.resolve();
+    }
+
+    const ms = Math.max(20, (seconds * 1000) / this.speedMultiplier);
+    const start = performance.now();
+    return new Promise((resolve) => {
+      const frame = (now: number) => {
+        if (this.stopped) {
+          resolve();
+          return;
+        }
+        const raw = clamp((now - start) / ms, 0, 1);
+        apply(easing(raw, 'ease'));
+        if (raw < 1) requestAnimationFrame(frame);
+        else resolve();
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
   private splitGeometryAndStyle(args: string[]) {
     const geometry: number[] = [];
     let index = 0;
@@ -1191,7 +1403,8 @@ export class DrawScriptEngine {
         break;
       }
 
-      case 'arrow': {
+      case 'arrow':
+      case 'doublearrow': {
         const { geometry: values, styles } = this.splitGeometryAndStyle(args);
         let points: Point3[];
         if (values.length >= 6) {
@@ -1199,7 +1412,7 @@ export class DrawScriptEngine {
         } else if (values.length >= 4) {
           points = [point3(values[0], values[1], 0), point3(values[2], values[3], 0)];
         } else {
-          throw new Error('arrow requires 4 or 6 coordinates');
+          throw new Error(`${parsed.name} requires 4 or 6 coordinates`);
         }
         let head = 12;
         for (const t of styles) {
@@ -1207,7 +1420,15 @@ export class DrawScriptEngine {
         }
         const style = createStyle(styles);
         await this.addAnimatedObject(
-          { type: 'line', progress: 0, points, style, arrow: true, head },
+          {
+            type: 'line',
+            progress: 0,
+            points,
+            style,
+            arrow: true,
+            arrowStart: parsed.name === 'doublearrow',
+            head,
+          },
           animationTimeMs(style, 0.9) / 1000,
           style.ease
         );
@@ -1668,6 +1889,589 @@ export class DrawScriptEngine {
           0.5,
           'out'
         );
+        break;
+      }
+
+      // ───────────────────────── Regular shapes ─────────────────────────
+      case 'ngon':
+      case 'regular':
+      case 'pentagon':
+      case 'hexagon':
+      case 'heptagon':
+      case 'octagon': {
+        const fixedSides: Record<string, number> = { pentagon: 5, hexagon: 6, heptagon: 7, octagon: 8 };
+        const fixed = fixedSides[parsed.name];
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < (fixed ? 3 : 4)) {
+          throw new Error(`${parsed.name} requires cx cy radius${fixed ? '' : ' sides'}`);
+        }
+        const [cx, cy, radius] = values;
+        const sides = Math.max(3, Math.floor(fixed ?? values[3]));
+        const z = optNum(styles, ['z'], 0);
+        const rotation = optNum(styles, ['rot', 'rotate'], 0) * DEG - Math.PI / 2;
+        const points: Point3[] = [];
+        for (let i = 0; i < sides; i++) {
+          const a = rotation + (i / sides) * Math.PI * 2;
+          points.push(point3(cx + radius * Math.cos(a), cy + radius * Math.sin(a), z));
+        }
+        const style = createStyle(styles);
+        await this.addAnimatedObject(
+          { type: 'path', progress: 0, points, closed: true, style },
+          animationTimeMs(style, 1.0) / 1000,
+          style.ease
+        );
+        break;
+      }
+
+      case 'star': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 4) throw new Error('star requires cx cy outerRadius innerRadius [points]');
+        const [cx, cy, outer, inner] = values;
+        const count = Math.max(3, Math.floor(values[4] ?? 5));
+        const z = optNum(styles, ['z'], 0);
+        const rotation = optNum(styles, ['rot', 'rotate'], 0) * DEG - Math.PI / 2;
+        const points: Point3[] = [];
+        for (let i = 0; i < count * 2; i++) {
+          const r = i % 2 === 0 ? outer : inner;
+          const a = rotation + (i / (count * 2)) * Math.PI * 2;
+          points.push(point3(cx + r * Math.cos(a), cy + r * Math.sin(a), z));
+        }
+        const style = createStyle(styles);
+        await this.addAnimatedObject(
+          { type: 'path', progress: 0, points, closed: true, style },
+          animationTimeMs(style, 1.1) / 1000,
+          style.ease
+        );
+        break;
+      }
+
+      // ───────────────────────── 3D solids ─────────────────────────
+      case 'sphere': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 3) throw new Error('sphere requires cx cy cz radius (or cx cy radius)');
+        const hasZ = values.length >= 4;
+        const cx = values[0];
+        const cy = values[1];
+        const cz = hasZ ? values[2] : 0;
+        const radius = hasZ ? values[3] : values[2];
+        const latitudes = Math.max(2, Math.floor(optNum(styles, ['lat'], 6)));
+        const meridians = Math.max(2, Math.floor(optNum(styles, ['lon'], 6)));
+        const SAMPLES = 64;
+        const paths: MultiPath[] = [];
+
+        for (let k = 1; k < latitudes; k++) {
+          const a = -Math.PI / 2 + (k / latitudes) * Math.PI;
+          const ring: Point3[] = [];
+          for (let i = 0; i < SAMPLES; i++) {
+            const t = (i / SAMPLES) * Math.PI * 2;
+            ring.push(
+              point3(
+                cx + radius * Math.cos(a) * Math.cos(t),
+                cy + radius * Math.sin(a),
+                cz + radius * Math.cos(a) * Math.sin(t)
+              )
+            );
+          }
+          paths.push({ points: ring, closed: true });
+        }
+        for (let j = 0; j < meridians; j++) {
+          const theta = (j / meridians) * Math.PI;
+          const loop: Point3[] = [];
+          for (let i = 0; i < SAMPLES; i++) {
+            const t = (i / SAMPLES) * Math.PI * 2;
+            loop.push(
+              point3(
+                cx + radius * Math.cos(t) * Math.cos(theta),
+                cy + radius * Math.sin(t),
+                cz + radius * Math.cos(t) * Math.sin(theta)
+              )
+            );
+          }
+          paths.push({ points: loop, closed: true });
+        }
+        const style = createStyle(styles);
+        style.fill = null;
+        await this.addMultiPath(paths, style, animationTimeMs(style, 1.6) / 1000);
+        break;
+      }
+
+      case 'cube':
+      case 'box': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        const isCube = parsed.name === 'cube';
+        let cx: number, cy: number, cz: number, w: number, h: number, d: number;
+        if (isCube) {
+          if (values.length < 3) throw new Error('cube requires cx cy cz size (or cx cy size)');
+          const hasZ = values.length >= 4;
+          cx = values[0];
+          cy = values[1];
+          cz = hasZ ? values[2] : 0;
+          w = h = d = hasZ ? values[3] : values[2];
+        } else {
+          if (values.length < 6) throw new Error('box requires cx cy cz width height depth');
+          [cx, cy, cz, w, h, d] = values;
+        }
+        const style = createStyle(styles);
+        const vertex = (i: number) =>
+          point3(
+            cx + (i & 1 ? w / 2 : -w / 2),
+            cy + (i & 2 ? h / 2 : -h / 2),
+            cz + (i & 4 ? d / 2 : -d / 2)
+          );
+        const paths: MultiPath[] = [];
+        for (let i = 0; i < 8; i++) {
+          for (const bit of [1, 2, 4]) {
+            if (!(i & bit)) paths.push({ points: [vertex(i), vertex(i | bit)] });
+          }
+        }
+        const faces: { points: Point3[]; fill: string }[] = [];
+        if (style.fill) {
+          const quads: number[][] = [];
+          for (const s of [0, 1]) {
+            quads.push([s, s | 2, s | 2 | 4, s | 4]);
+            quads.push([s << 1, (s << 1) | 1, (s << 1) | 1 | 4, (s << 1) | 4]);
+            quads.push([s << 2, (s << 2) | 1, (s << 2) | 1 | 2, (s << 2) | 2]);
+          }
+          for (const q of quads) faces.push({ points: q.map(vertex), fill: style.fill });
+        }
+        await this.addMultiPath(paths, style, animationTimeMs(style, 1.2) / 1000, faces);
+        break;
+      }
+
+      case 'pyramid': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 5) throw new Error('pyramid requires cx cy cz baseSize height');
+        const [cx, cy, cz, base, height] = values;
+        const half = base / 2;
+        const corners = [
+          point3(cx - half, cy, cz - half),
+          point3(cx + half, cy, cz - half),
+          point3(cx + half, cy, cz + half),
+          point3(cx - half, cy, cz + half),
+        ];
+        const apex = point3(cx, cy - height, cz);
+        const style = createStyle(styles);
+        const paths: MultiPath[] = [
+          { points: corners, closed: true },
+          ...corners.map((c) => ({ points: [c, apex] })),
+        ];
+        const faces: { points: Point3[]; fill: string }[] = [];
+        if (style.fill) {
+          faces.push({ points: corners, fill: style.fill });
+          for (let i = 0; i < 4; i++) {
+            faces.push({ points: [corners[i], corners[(i + 1) % 4], apex], fill: style.fill });
+          }
+        }
+        await this.addMultiPath(paths, style, animationTimeMs(style, 1.2) / 1000, faces);
+        break;
+      }
+
+      case 'helix': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 6) throw new Error('helix requires cx cy cz radius height turns');
+        const [cx, cy, cz, radius, height, turns] = values;
+        const count = Math.max(24, Math.ceil(Math.abs(turns) * 48));
+        const samples: Point3[] = [];
+        for (let i = 0; i <= count; i++) {
+          const t = i / count;
+          const a = t * turns * Math.PI * 2;
+          samples.push(point3(cx + radius * Math.cos(a), cy - height * t, cz + radius * Math.sin(a)));
+        }
+        const style = createStyle(styles);
+        await this.addAnimatedObject(
+          { type: 'curve', progress: 0, samples, style },
+          animationTimeMs(style, 1.6) / 1000,
+          style.ease
+        );
+        break;
+      }
+
+      case 'spiral': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 4) throw new Error('spiral requires cx cy radius turns');
+        const [cx, cy, radius, turns] = values;
+        const z = optNum(styles, ['z'], 0);
+        const count = Math.max(40, Math.ceil(Math.abs(turns) * 72));
+        const samples: Point3[] = [];
+        for (let i = 0; i <= count; i++) {
+          const t = i / count;
+          const a = t * turns * Math.PI * 2 - Math.PI / 2;
+          samples.push(point3(cx + radius * t * Math.cos(a), cy + radius * t * Math.sin(a), z));
+        }
+        const style = createStyle(styles);
+        await this.addAnimatedObject(
+          { type: 'curve', progress: 0, samples, style },
+          animationTimeMs(style, 1.5) / 1000,
+          style.ease
+        );
+        break;
+      }
+
+      // ───────────────────────── Graphs & charts ─────────────────────────
+      case 'plot':
+      case 'function': {
+        if (!args.length) throw new Error('plot requires "expression" xmin xmax');
+        const expression = stripQuotes(args[0]);
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args.slice(1));
+        if (values.length < 2) throw new Error('plot requires "expression" xmin xmax');
+        let fn: (x: number) => number;
+        try {
+          fn = compileExpression(expression);
+        } catch (err) {
+          throw new Error(`plot: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        const [xmin, xmax] = values;
+        if (!(xmax > xmin)) throw new Error('plot requires xmax > xmin');
+        const span = xmax - xmin;
+        const sx = values[4] ?? 600 / span;
+        const sy = values[5] ?? sx;
+        const ox = values[2] ?? 400 - ((xmin + xmax) / 2) * sx;
+        const oy = values[3] ?? 300;
+        const z = optNum(styles, ['z'], 0);
+
+        const SAMPLES = 400;
+        const segments: Point3[][] = [];
+        let current: Point3[] = [];
+        let previousY: number | null = null;
+        for (let i = 0; i <= SAMPLES; i++) {
+          const x = xmin + (span * i) / SAMPLES;
+          const y = fn(x);
+          const screenY = oy - y * sy;
+          const visible = Number.isFinite(y) && Math.abs(y * sy) < 4000;
+          if (!visible) {
+            if (current.length > 1) segments.push(current);
+            current = [];
+            previousY = null;
+            continue;
+          }
+          if (previousY !== null && Math.abs(screenY - previousY) > 1200) {
+            if (current.length > 1) segments.push(current);
+            current = [];
+          }
+          current.push(point3(ox + x * sx, screenY, z));
+          previousY = screenY;
+        }
+        if (current.length > 1) segments.push(current);
+        if (!segments.length) throw new Error('plot: expression produced no visible points');
+
+        const style = createStyle(styles);
+        style.fill = null;
+        await this.addMultiPath(
+          segments.map((points) => ({ points })),
+          style,
+          animationTimeMs(style, 1.4) / 1000
+        );
+        break;
+      }
+
+      case 'axes2d': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 7) {
+          throw new Error('axes2d requires originX originY scale xmin xmax ymin ymax');
+        }
+        const [ox, oy, scale, xmin, xmax, ymin, ymax] = values;
+        const z = optNum(styles, ['z'], 0);
+        let step = Math.max(0.0001, optNum(styles, ['step'], 1));
+        while ((xmax - xmin) / step > 24 || (ymax - ymin) / step > 24) step *= 2;
+        const showGrid = hasFlag(styles, 'grid');
+        const tickLabels = !isOff(styles, 'labels');
+        const style = createStyle(styles);
+        style.fill = null;
+
+        const toX = (v: number) => ox + v * scale;
+        const toY = (v: number) => oy - v * scale;
+        const first = (min: number) => Math.ceil(min / step - 1e-9);
+        const last = (max: number) => Math.floor(max / step + 1e-9);
+        const fmt = (v: number) => String(Number(v.toFixed(4)));
+
+        const paths: MultiPath[] = [];
+        const labels: { x: number; y: number; text: string; align: CanvasTextAlign }[] = [];
+
+        if (showGrid) {
+          const gridColor = '#1e293b';
+          for (let i = first(xmin); i <= last(xmax); i++) {
+            paths.push({ points: [point3(toX(i * step), toY(ymin), z), point3(toX(i * step), toY(ymax), z)], color: gridColor });
+          }
+          for (let j = first(ymin); j <= last(ymax); j++) {
+            paths.push({ points: [point3(toX(xmin), toY(j * step), z), point3(toX(xmax), toY(j * step), z)], color: gridColor });
+          }
+        }
+
+        paths.push({ points: [point3(toX(xmin), oy, z), point3(toX(xmax), oy, z)] });
+        paths.push({ points: [point3(ox, toY(ymin), z), point3(ox, toY(ymax), z)] });
+
+        // Arrow chevrons at the positive ends.
+        paths.push({ points: [point3(toX(xmax) - 9, oy - 5, z), point3(toX(xmax), oy, z), point3(toX(xmax) - 9, oy + 5, z)] });
+        paths.push({ points: [point3(ox - 5, toY(ymax) + 9, z), point3(ox, toY(ymax), z), point3(ox + 5, toY(ymax) + 9, z)] });
+
+        for (let i = first(xmin); i <= last(xmax); i++) {
+          if (i === 0) continue;
+          const v = i * step;
+          paths.push({ points: [point3(toX(v), oy - 4, z), point3(toX(v), oy + 4, z)] });
+          labels.push({ x: toX(v), y: oy + 17, text: fmt(v), align: 'center' });
+        }
+        for (let j = first(ymin); j <= last(ymax); j++) {
+          if (j === 0) continue;
+          const v = j * step;
+          paths.push({ points: [point3(ox - 4, toY(v), z), point3(ox + 4, toY(v), z)] });
+          labels.push({ x: ox - 10, y: toY(v), text: fmt(v), align: 'right' });
+        }
+        labels.push({ x: ox - 10, y: oy + 15, text: '0', align: 'right' });
+
+        await this.addMultiPath(paths, style, animationTimeMs(style, 1.2) / 1000);
+        if (tickLabels) {
+          for (const l of labels) this.addStaticText(l.x, l.y, z, l.text, '#94a3b8', '12px JetBrains Mono, monospace', l.align);
+        }
+        break;
+      }
+
+      case 'numberline': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 5) throw new Error('numberline requires x y length min max [step=1]');
+        const [x, y, length, min, max] = values;
+        if (!(max > min)) throw new Error('numberline requires max > min');
+        let step = Math.max(0.0001, optNum(styles, ['step'], 1));
+        while ((max - min) / step > 30) step *= 2;
+        const z = optNum(styles, ['z'], 0);
+        const style = createStyle(styles);
+        style.fill = null;
+        const toX = (v: number) => x + ((v - min) / (max - min)) * length;
+        const paths: MultiPath[] = [{ points: [point3(x, y, z), point3(x + length, y, z)] }];
+        const labels: { x: number; text: string }[] = [];
+        for (let v = Math.ceil(min / step - 1e-9); v <= Math.floor(max / step + 1e-9); v++) {
+          const value = v * step;
+          paths.push({ points: [point3(toX(value), y - 6, z), point3(toX(value), y + 6, z)] });
+          labels.push({ x: toX(value), text: String(Number(value.toFixed(4))) });
+        }
+        await this.addMultiPath(paths, style, animationTimeMs(style, 1.0) / 1000);
+        for (const l of labels) {
+          this.addStaticText(l.x, y + 22, z, l.text, style.color, '13px JetBrains Mono, monospace');
+        }
+        break;
+      }
+
+      case 'pie': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 4) throw new Error('pie requires cx cy radius value1 value2 ...');
+        const [cx, cy, radius] = values;
+        const slices = values.slice(3).map((v) => Math.max(0, v));
+        const total = slices.reduce((sum, v) => sum + v, 0);
+        if (total <= 0) throw new Error('pie requires at least one positive value');
+        const z = optNum(styles, ['z'], 0);
+        const startAngle = optNum(styles, ['start'], -90) * DEG;
+        const showLabels = !isOff(styles, 'labels');
+        const style = createStyle(styles);
+        style.fill = null;
+
+        const paths: MultiPath[] = [];
+        const labelSpots: { x: number; y: number; text: string }[] = [];
+        let angle = startAngle;
+        slices.forEach((value, i) => {
+          if (value <= 0) return;
+          const sweep = (value / total) * Math.PI * 2;
+          const steps = Math.max(4, Math.ceil((sweep / (Math.PI * 2)) * 72));
+          const color = PALETTE[i % PALETTE.length];
+          const points: Point3[] = [point3(cx, cy, z)];
+          for (let s = 0; s <= steps; s++) {
+            const a = angle + (sweep * s) / steps;
+            points.push(point3(cx + radius * Math.cos(a), cy + radius * Math.sin(a), z));
+          }
+          paths.push({ points, closed: true, fill: withAlpha(color, 0.38), color });
+          const mid = angle + sweep / 2;
+          labelSpots.push({
+            x: cx + radius * 0.62 * Math.cos(mid),
+            y: cy + radius * 0.62 * Math.sin(mid),
+            text: `${Math.round((value / total) * 100)}%`,
+          });
+          angle += sweep;
+        });
+
+        await this.addMultiPath(paths, style, animationTimeMs(style, 1.3) / 1000);
+        if (showLabels) {
+          for (const spot of labelSpots) {
+            this.addStaticText(spot.x, spot.y, z, spot.text, '#ffffff', '600 15px Plus Jakarta Sans, sans-serif');
+          }
+        }
+        break;
+      }
+
+      case 'bars': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 5) throw new Error('bars requires x y barWidth maxHeight value1 value2 ...');
+        const [x, y, barWidth, maxHeight] = values;
+        const data = values.slice(4);
+        const peak = Math.max(...data.map((v) => Math.abs(v)), 1e-9);
+        const gap = optNum(styles, ['gap'], barWidth * 0.35);
+        const z = optNum(styles, ['z'], 0);
+        const showValues = !isOff(styles, 'values');
+        const style = createStyle(styles);
+        const customFill = style.fill;
+        style.fill = null;
+
+        const paths: MultiPath[] = [];
+        const tops: { x: number; y: number; text: string }[] = [];
+        const totalWidth = data.length * barWidth + (data.length - 1) * gap;
+        paths.push({ points: [point3(x - 8, y, z), point3(x + totalWidth + 8, y, z)], color: '#64748b' });
+        data.forEach((value, i) => {
+          const height = (value / peak) * maxHeight;
+          const left = x + i * (barWidth + gap);
+          const color = customFill ? style.color : PALETTE[i % PALETTE.length];
+          paths.push({
+            points: [
+              point3(left, y, z),
+              point3(left, y - height, z),
+              point3(left + barWidth, y - height, z),
+              point3(left + barWidth, y, z),
+            ],
+            closed: true,
+            fill: customFill ?? withAlpha(color, 0.38),
+            color,
+          });
+          tops.push({
+            x: left + barWidth / 2,
+            y: y - height - (value >= 0 ? 14 : -14),
+            text: String(Number(value.toFixed(4))),
+          });
+        });
+
+        await this.addMultiPath(paths, style, animationTimeMs(style, 1.2) / 1000);
+        if (showValues) {
+          for (const t of tops) {
+            this.addStaticText(t.x, t.y, z, t.text, '#e2e8f0', '600 14px JetBrains Mono, monospace');
+          }
+        }
+        break;
+      }
+
+      // ───────────────────────── Annotations ─────────────────────────
+      case 'angle': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 5) throw new Error('angle requires cx cy radius startDeg endDeg [label="θ"]');
+        const [cx, cy, radius, startDeg, endDeg] = values;
+        const z = optNum(styles, ['z'], 0);
+        const style = createStyle(styles);
+        style.fill = null;
+        const label =
+          optStr(styles, ['label']) ?? stripQuotes(styles.find((t) => /^["']/.test(t)) ?? '');
+        // Degrees measured counter-clockwise (screen y points down, so flip the sign).
+        const toPoint = (deg: number, r: number) =>
+          point3(cx + r * Math.cos(-deg * DEG), cy + r * Math.sin(-deg * DEG), z);
+
+        const paths: MultiPath[] = [];
+        if (hasFlag(styles, 'rays')) {
+          paths.push({ points: [point3(cx, cy, z), toPoint(startDeg, radius * 1.45)] });
+          paths.push({ points: [point3(cx, cy, z), toPoint(endDeg, radius * 1.45)] });
+        }
+        if (hasFlag(styles, 'square')) {
+          const size = radius * 0.6;
+          const u = toPoint(startDeg, size);
+          const v = toPoint(endDeg, size);
+          paths.push({ points: [u, point3(u.x + (v.x - cx), u.y + (v.y - cy), z), v] });
+        } else {
+          const steps = Math.max(8, Math.ceil(Math.abs(endDeg - startDeg) / 3));
+          const arcPoints: Point3[] = [];
+          for (let i = 0; i <= steps; i++) {
+            arcPoints.push(toPoint(startDeg + ((endDeg - startDeg) * i) / steps, radius));
+          }
+          paths.push({ points: arcPoints });
+        }
+
+        await this.addMultiPath(paths, style, animationTimeMs(style, 0.7) / 1000);
+        if (label) {
+          const spot = toPoint((startDeg + endDeg) / 2, radius * 1.4);
+          this.addStaticText(spot.x, spot.y, z, label, style.color, '600 16px Plus Jakarta Sans, sans-serif');
+        }
+        break;
+      }
+
+      case 'dimension': {
+        const { geometry: values, styles } = this.splitGeometryAndStyle(args);
+        if (values.length < 4) throw new Error('dimension requires x1 y1 x2 y2 "label" [offset=24]');
+        const [x1, y1, x2, y2] = values;
+        const z = optNum(styles, ['z'], 0);
+        const offset = optNum(styles, ['offset'], 24);
+        const label =
+          optStr(styles, ['label']) ?? stripQuotes(styles.find((t) => /^["']/.test(t)) ?? '');
+        const style = createStyle(styles);
+        style.fill = null;
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len;
+        const uy = dy / len;
+        const nx = -uy;
+        const ny = ux;
+        const side = offset >= 0 ? 1 : -1;
+        const ax = x1 + nx * offset;
+        const ay = y1 + ny * offset;
+        const bx = x2 + nx * offset;
+        const by = y2 + ny * offset;
+        const head = 9;
+        const chevron = (tx: number, ty: number, dirX: number, dirY: number): Point3[] => {
+          const rot = (a: number) => [dirX * Math.cos(a) - dirY * Math.sin(a), dirX * Math.sin(a) + dirY * Math.cos(a)];
+          const [lx, ly] = rot(0.45);
+          const [rx, ry] = rot(-0.45);
+          return [
+            point3(tx - lx * head, ty - ly * head, z),
+            point3(tx, ty, z),
+            point3(tx - rx * head, ty - ry * head, z),
+          ];
+        };
+
+        const paths: MultiPath[] = [
+          { points: [point3(x1, y1, z), point3(x1 + nx * (offset + 6 * side), y1 + ny * (offset + 6 * side), z)] },
+          { points: [point3(x2, y2, z), point3(x2 + nx * (offset + 6 * side), y2 + ny * (offset + 6 * side), z)] },
+          { points: [point3(ax, ay, z), point3(bx, by, z)] },
+          { points: chevron(bx, by, ux, uy) },
+          { points: chevron(ax, ay, -ux, -uy) },
+        ];
+        await this.addMultiPath(paths, style, animationTimeMs(style, 0.8) / 1000);
+        if (label) {
+          const lx = (ax + bx) / 2 + nx * 14 * side;
+          const ly = (ay + by) / 2 + ny * 14 * side;
+          this.addStaticText(lx, ly, z, label, style.color, '600 15px Plus Jakarta Sans, sans-serif');
+        }
+        break;
+      }
+
+      // ───────────────────────── Scene control ─────────────────────────
+      case 'background': {
+        const color = args.map(stripQuotes).find(isColor) ?? optStr(args, ['color']);
+        if (!color) throw new Error('background requires a color, e.g. background #0f172a');
+        this.bgColor = color;
+        this.renderScene();
+        break;
+      }
+
+      case 'camera': {
+        const to: Partial<Pick<CameraState, 'yaw' | 'pitch' | 'roll' | 'zoom'>> = {};
+        for (const token of args) {
+          const lower = token.toLowerCase();
+          if (lower === 'iso') {
+            to.yaw = -0.58;
+            to.pitch = 0.36;
+            to.roll = 0;
+          } else if (lower === 'front' || lower === 'reset') {
+            to.yaw = 0;
+            to.pitch = 0;
+            to.roll = 0;
+            if (lower === 'reset') to.zoom = 1;
+          }
+        }
+        const yaw = optStr(args, ['yaw']);
+        const pitch = optStr(args, ['pitch']);
+        const roll = optStr(args, ['roll']);
+        const zoom = optStr(args, ['zoom']);
+        if (yaw != null) to.yaw = toNum(yaw) * DEG;
+        if (pitch != null) to.pitch = clamp(toNum(pitch) * DEG, this.MIN_PITCH, this.MAX_PITCH);
+        if (roll != null) to.roll = toNum(roll) * DEG;
+        if (zoom != null) to.zoom = clamp(toNum(zoom, 1), this.MIN_ZOOM, this.MAX_ZOOM);
+        if (!Object.keys(to).length) {
+          throw new Error('camera requires iso | front | reset | yaw=deg pitch=deg zoom=n');
+        }
+        const seconds = parseDuration(optStr(args, ['duration']), 0.9);
+        await this.animateCamera(to, seconds);
         break;
       }
 

@@ -33,13 +33,30 @@ AVAILABLE COMMANDS (wrap each inside \\( and \\)):
 - \\(point x y [z] radius color\\)
 - \\(text x y "label" [z] color font="20px sans-serif" align=center\\)
 - \\(highlight x y [z] radius color=yellow glow=16\\)
+- \\(doublearrow x1 y1 x2 y2 color width=3\\)  (arrowheads on both ends)
+- \\(pentagon|hexagon|heptagon|octagon cx cy radius color fill=rgba(...) rot=15\\)
+- \\(ngon cx cy radius sides color\\)  and  \\(star cx cy outerR innerR [points] color\\)
+- \\(sphere cx cy cz radius color lat=6 lon=6\\)  (wireframe globe)
+- \\(cube cx cy cz size color fill=rgba(...)\\)  and  \\(box cx cy cz width height depth color\\)
+- \\(pyramid cx cy cz baseSize height color fill=rgba(...)\\)
+- \\(helix cx cy cz radius height turns color\\)  and  \\(spiral cx cy radius turns color\\)
+- \\(axes2d originX originY scale xmin xmax ymin ymax color grid step=1\\)  (labelled 2D axes with ticks)
+- \\(plot "sin(x)/x" xmin xmax originX originY scale color width=3\\)  (graphs any f(x); supports sin cos tan sqrt abs ln log exp pi ^)
+- \\(numberline x y length min max step=1 color\\)
+- \\(pie cx cy radius v1 v2 v3 ...\\)  (auto-coloured slices with % labels)
+- \\(bars x y barWidth maxHeight v1 v2 v3 ...\\)  (auto-coloured bar chart with value labels)
+- \\(angle cx cy radius startDeg endDeg "θ" rays color\\)  (add "square" for a right-angle mark)
+- \\(dimension x1 y1 x2 y2 "label" offset=-24 color\\)  (measurement line with end arrows)
+- \\(camera iso | front | yaw=30 pitch=20 zoom=1.5 duration=1\\)  (animated camera move)
+- \\(background #0f172a\\)
 - \\(wait 0.6\\)
 
 RULES:
 1. Never put Markdown formatting inside \\( ... \\).
 2. Always quote multi-word text strings in text commands: \\(text 400 90 "Pythagorean Theorem" cyan\\).
 3. Narrate one concept at a time, then immediately draw the matching geometry.
-4. Keep coordinates well-spaced so labels never overlap.`;
+4. Keep coordinates well-spaced so labels never overlap.
+5. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.`;
 
 export const LESSON_PRESETS: LessonPreset[] = [
   {
@@ -130,6 +147,71 @@ Finally, the resultant vector w connects the origin directly to the tip of v.
 \\(arrow 360 360 0 530 190 150 #f59e0b width=4 head=14 glow=8\\)
 \\(text 425 250 "w = u + v" 80 #fcd34d font="18px sans-serif"\\)
 \\(point 530 190 150 6 #f59e0b\\)`,
+  },
+  {
+    id: 'function-plot',
+    title: 'Graphing Functions (sin x, x², 1/x)',
+    subject: 'Algebra & Calculus',
+    description: 'Uses axes2d and plot to graph several functions from plain math expressions.',
+    script: `Let us graph some classic functions on one set of axes.
+\\(axes2d 400 300 40 -7 7 -4 4 #94a3b8 grid\\)
+First, the sine wave, which repeats every two pi.
+\\(plot "sin(x)" -7 7 400 300 40 #38bdf8 width=4 glow=6\\)
+\\(text 640 190 "y = sin(x)" #38bdf8 font="16px sans-serif" align=left\\)
+Next, a parabola, which opens upward and has its vertex at the origin.
+\\(plot "x^2/4" -4 4 400 300 40 #f59e0b width=4\\)
+\\(text 560 110 "y = x²/4" #f59e0b font="16px sans-serif" align=left\\)
+Finally, the reciprocal function, which blows up near zero.
+\\(plot "1/x" -7 7 400 300 40 #34d399 width=4\\)
+\\(text 470 190 "y = 1/x" #34d399 font="16px sans-serif" align=left\\)`,
+  },
+  {
+    id: 'solids-3d',
+    title: '3D Solids Gallery',
+    subject: '3D Solid Geometry',
+    description: 'A sphere, cube and pyramid side by side, drawn with the new solid primitives. Drag to orbit.',
+    isoView: true,
+    script: `Let us tour three classic solids.
+\\(axes 400 400 0 200 color=#334155 width=2\\)
+A sphere is every point at the same distance from its centre.
+\\(sphere 220 330 0 75 #38bdf8 width=1.5 lat=7 lon=7\\)
+\\(text 220 440 "Sphere" 0 #38bdf8 font="18px sans-serif" align=center\\)
+A cube has six equal square faces, twelve edges and eight vertices.
+\\(cube 400 350 0 120 #f59e0b width=2 fill=rgba(245,158,11,0.14)\\)
+\\(text 400 440 "Cube" 0 #f59e0b font="18px sans-serif" align=center\\)
+A square pyramid rises from a square base to a single apex.
+\\(pyramid 590 400 0 130 170 #f472b6 width=2 fill=rgba(244,114,182,0.14)\\)
+\\(text 590 440 "Pyramid" 0 #f472b6 font="18px sans-serif" align=center\\)
+Drag the canvas to orbit around them.`,
+  },
+  {
+    id: 'right-angle',
+    title: 'Angles & Measurements',
+    subject: 'Geometry',
+    description: 'Shows right-angle marks, labelled angles and dimension lines on a triangle.',
+    script: `Let us label a right triangle properly.
+\\(polygon 220 420 520 420 520 220 #94a3b8 width=3 fill=rgba(148,163,184,0.08)\\)
+The corner at the bottom right is a right angle.
+\\(angle 520 420 50 90 180 square #facc15 width=2\\)
+The angle at the bottom left is theta.
+\\(angle 220 420 70 0 34 "θ" #38bdf8 width=3\\)
+Now we measure the base and the height with dimension lines.
+\\(dimension 220 420 520 420 "base = 300" offset=-34 #34d399\\)
+\\(dimension 520 420 520 220 "height = 200" offset=-34 #f59e0b\\)
+\\(text 340 300 "hypotenuse" #94a3b8 font="16px sans-serif" align=center\\)`,
+  },
+  {
+    id: 'charts',
+    title: 'Data: Pie & Bar Charts',
+    subject: 'Statistics',
+    description: 'Presents the same data as a pie chart and a bar chart using auto-coloured charts.',
+    script: `Here is how a class spent its study time, shown two ways.
+\\(text 400 60 "Study time by subject" #ffffff font="22px sans-serif" align=center\\)
+First as a pie chart, where each slice is its share of the total.
+\\(pie 230 290 120 40 25 20 15 #ffffff width=2\\)
+Now the same numbers as a bar chart, where height shows the amount.
+\\(bars 440 410 50 240 40 25 20 15 #ffffff width=2\\)
+\\(numberline 120 500 560 0 100 step=10 #64748b\\)`,
   },
 ];
 

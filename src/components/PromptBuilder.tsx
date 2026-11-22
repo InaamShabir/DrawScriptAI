@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Check, ExternalLink, Play } from 'lucide-react';
 import { DEFAULT_SYSTEM_PROMPT, SIMULATED_CHATGPT_REPLY } from '../data/presets';
 
@@ -11,7 +11,15 @@ const SAMPLE_QUESTIONS = [
   'Compare the volume of a 3D cylinder and a 3D cone of equal radius and height.',
   'Explain how the unit circle generates a sine wave.',
   'Visualize vector addition u + v = w in 3D space.',
+  'Graph y = sin(x) and y = x² on the same axes and explain how they differ.',
+  'Show the surface of a sphere, cube and pyramid and compare their volume formulas.',
+  'Explain a pie chart and a bar chart using the same survey data.',
+  'Teach angles: acute, right and obtuse, with labelled arcs and a right-angle mark.',
 ];
+
+// Browsers and chat sites reject very long URLs, so past this size the
+// "Open in ..." links stop working and the user should use Copy instead.
+const MAX_SAFE_URL_PROMPT = 7000;
 
 export const PromptBuilder: React.FC<PromptBuilderProps> = ({ onLoadIntoCanvas }) => {
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
@@ -19,6 +27,15 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({ onLoadIntoCanvas }
     'Explain the Pythagorean theorem visually with squares on each side.'
   );
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    },
+    []
+  );
 
   const combinedPrompt = useMemo(() => {
     const cleanQ = question.trim() || 'Explain the Pythagorean theorem visually.';
@@ -26,14 +43,29 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({ onLoadIntoCanvas }
   }, [systemPrompt, question]);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(combinedPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    try {
+      await navigator.clipboard.writeText(combinedPrompt);
+      setCopyFailed(false);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+      setCopyFailed(true);
+    }
+    copyTimer.current = setTimeout(() => {
+      setCopied(false);
+      setCopyFailed(false);
+    }, 2400);
   };
 
-  const chatGptLaunchUrl = useMemo(() => {
-    return `https://chatgpt.com/?q=${encodeURIComponent(combinedPrompt)}`;
-  }, [combinedPrompt]);
+  const encodedPrompt = useMemo(() => encodeURIComponent(combinedPrompt), [combinedPrompt]);
+  const tooLongForUrl = encodedPrompt.length > MAX_SAFE_URL_PROMPT;
+  const chatGptLaunchUrl = tooLongForUrl
+    ? 'https://chatgpt.com/'
+    : `https://chatgpt.com/?q=${encodedPrompt}`;
+  const claudeLaunchUrl = tooLongForUrl
+    ? 'https://claude.ai/new'
+    : `https://claude.ai/new?q=${encodedPrompt}`;
 
   return (
     <div className="space-y-6">
@@ -132,14 +164,14 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({ onLoadIntoCanvas }
                 {combinedPrompt.length} characters · Uses your own free or Plus account
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleCopy}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-100 transition-colors cursor-pointer whitespace-nowrap"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                {copied ? 'Copied' : 'Copy Prompt'}
+                {copied ? 'Copied' : copyFailed ? 'Copy blocked' : 'Copy Prompt'}
               </button>
 
               <a
@@ -151,8 +183,26 @@ export const PromptBuilder: React.FC<PromptBuilderProps> = ({ onLoadIntoCanvas }
                 Open in ChatGPT
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
+
+              <a
+                href={claudeLaunchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 text-xs font-semibold transition-colors whitespace-nowrap"
+              >
+                Open in Claude
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
+
+          {(tooLongForUrl || copyFailed) && (
+            <p role="status" className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 leading-relaxed">
+              {copyFailed
+                ? 'Your browser blocked clipboard access. Select the prompt below and copy it manually.'
+                : 'This prompt is too long to pass through a link, so the buttons open an empty chat. Use Copy Prompt and paste it in.'}
+            </p>
+          )}
 
           <pre className="flex-1 p-4 rounded-lg bg-[#030712] border border-slate-800 text-xs font-mono text-slate-300 whitespace-pre-wrap overflow-y-auto max-h-[430px] leading-relaxed">
             {combinedPrompt}
