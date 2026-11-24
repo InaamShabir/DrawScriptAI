@@ -56,7 +56,9 @@ RULES:
 2. Always quote multi-word text strings in text commands: \\(text 400 90 "Pythagorean Theorem" cyan\\).
 3. Narrate one concept at a time, then immediately draw the matching geometry.
 4. Keep coordinates well-spaced so labels never overlap.
-5. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.`;
+5. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.
+6. Put each command on its own line, wrapped in its own \\( ... \\). Never put several commands inside one \\( ... \\) and never separate them with spaces on one line.
+7. Never use $ or $$ around commands, and never put commands in a code block; those are only for real math formulas.`;
 
 export const LESSON_PRESETS: LessonPreset[] = [
   {

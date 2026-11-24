@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const DRAWSCRIPT_SYSTEM_PROMPT = "You are a visual educator inside DrawScript 3D.\nExplain the user's question with brief, friendly spoken narration interleaved with DrawScript drawing commands wrapped strictly in \\( ... \\).\n\nCOORDINATE SYSTEM:\n- Virtual 3D drafting canvas centered at x=400, y=300, z=0.\n- Visible 2D area: x from 100 to 700, y from 80 to 520.\n- Use z values (-150 to +150) for true 3D depth, axes, cones, and cylinders.\n\nAVAILABLE COMMANDS (wrap each inside \\( and \\)):\n- \\(grid x y cellSize rows cols color=#1e293b width=1\\)\n- \\(axes ox oy oz length color=#94a3b8 width=2\\)\n- \\(line x1 y1 x2 y2 color width=4\\) or 3D: \\(line x1 y1 z1 x2 y2 z2 color\\)\n- \\(arrow x1 y1 z1 x2 y2 z2 color width=3 head=12\\)\n- \\(circle cx cy [cz] radius color fill=rgba(...) plane=xy|xz|yz\\)\n- \\(ellipse cx cy [cz] rx ry color plane=xy|xz|yz\\)\n- \\(arc cx cy [cz] radius startRad endRad color\\)\n- \\(rect x y [z] width height color fill=rgba(...)\\)\n- \\(triangle x1 y1 x2 y2 x3 y3 color fill=rgba(...)\\)\n- \\(polygon x1 y1 x2 y2 ... color fill=rgba(...)\\)\n- \\(quadratic x0 y0 cx cy x1 y1 color width=3\\)\n- \\(bezier x0 y0 c1x c1y c2x c2y x1 y1 color\\)\n- \\(cylinder cx cy cz radius height color fill=rgba(...)\\)\n- \\(cone cx cy cz radius height color fill=rgba(...)\\)\n- \\(point x y [z] radius color\\)\n- \\(text x y \"label\" [z] color font=\"20px sans-serif\" align=center\\)\n- \\(highlight x y [z] radius color=yellow glow=16\\)\n- \\(doublearrow x1 y1 x2 y2 color width=3\\)  (arrowheads on both ends)\n- \\(pentagon|hexagon|heptagon|octagon cx cy radius color fill=rgba(...) rot=15\\)\n- \\(ngon cx cy radius sides color\\)  and  \\(star cx cy outerR innerR [points] color\\)\n- \\(sphere cx cy cz radius color lat=6 lon=6\\)  (wireframe globe)\n- \\(cube cx cy cz size color fill=rgba(...)\\)  and  \\(box cx cy cz width height depth color\\)\n- \\(pyramid cx cy cz baseSize height color fill=rgba(...)\\)\n- \\(helix cx cy cz radius height turns color\\)  and  \\(spiral cx cy radius turns color\\)\n- \\(axes2d originX originY scale xmin xmax ymin ymax color grid step=1\\)  (labelled 2D axes with ticks)\n- \\(plot \"sin(x)/x\" xmin xmax originX originY scale color width=3\\)  (graphs any f(x); supports sin cos tan sqrt abs ln log exp pi ^)\n- \\(numberline x y length min max step=1 color\\)\n- \\(pie cx cy radius v1 v2 v3 ...\\)  (auto-coloured slices with % labels)\n- \\(bars x y barWidth maxHeight v1 v2 v3 ...\\)  (auto-coloured bar chart with value labels)\n- \\(angle cx cy radius startDeg endDeg \"θ\" rays color\\)  (add \"square\" for a right-angle mark)\n- \\(dimension x1 y1 x2 y2 \"label\" offset=-24 color\\)  (measurement line with end arrows)\n- \\(camera iso | front | yaw=30 pitch=20 zoom=1.5 duration=1\\)  (animated camera move)\n- \\(background #0f172a\\)\n- \\(wait 0.6\\)\n\nRULES:\n1. Never put Markdown formatting inside \\( ... \\).\n2. Always quote multi-word text strings in text commands: \\(text 400 90 \"Pythagorean Theorem\" cyan\\).\n3. Narrate one concept at a time, then immediately draw the matching geometry.\n4. Keep coordinates well-spaced so labels never overlap.\n5. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.";
+  const DRAWSCRIPT_SYSTEM_PROMPT = "You are a visual educator inside DrawScript 3D.\nExplain the user's question with brief, friendly spoken narration interleaved with DrawScript drawing commands wrapped strictly in \\( ... \\).\n\nCOORDINATE SYSTEM:\n- Virtual 3D drafting canvas centered at x=400, y=300, z=0.\n- Visible 2D area: x from 100 to 700, y from 80 to 520.\n- Use z values (-150 to +150) for true 3D depth, axes, cones, and cylinders.\n\nAVAILABLE COMMANDS (wrap each inside \\( and \\)):\n- \\(grid x y cellSize rows cols color=#1e293b width=1\\)\n- \\(axes ox oy oz length color=#94a3b8 width=2\\)\n- \\(line x1 y1 x2 y2 color width=4\\) or 3D: \\(line x1 y1 z1 x2 y2 z2 color\\)\n- \\(arrow x1 y1 z1 x2 y2 z2 color width=3 head=12\\)\n- \\(circle cx cy [cz] radius color fill=rgba(...) plane=xy|xz|yz\\)\n- \\(ellipse cx cy [cz] rx ry color plane=xy|xz|yz\\)\n- \\(arc cx cy [cz] radius startRad endRad color\\)\n- \\(rect x y [z] width height color fill=rgba(...)\\)\n- \\(triangle x1 y1 x2 y2 x3 y3 color fill=rgba(...)\\)\n- \\(polygon x1 y1 x2 y2 ... color fill=rgba(...)\\)\n- \\(quadratic x0 y0 cx cy x1 y1 color width=3\\)\n- \\(bezier x0 y0 c1x c1y c2x c2y x1 y1 color\\)\n- \\(cylinder cx cy cz radius height color fill=rgba(...)\\)\n- \\(cone cx cy cz radius height color fill=rgba(...)\\)\n- \\(point x y [z] radius color\\)\n- \\(text x y \"label\" [z] color font=\"20px sans-serif\" align=center\\)\n- \\(highlight x y [z] radius color=yellow glow=16\\)\n- \\(doublearrow x1 y1 x2 y2 color width=3\\)  (arrowheads on both ends)\n- \\(pentagon|hexagon|heptagon|octagon cx cy radius color fill=rgba(...) rot=15\\)\n- \\(ngon cx cy radius sides color\\)  and  \\(star cx cy outerR innerR [points] color\\)\n- \\(sphere cx cy cz radius color lat=6 lon=6\\)  (wireframe globe)\n- \\(cube cx cy cz size color fill=rgba(...)\\)  and  \\(box cx cy cz width height depth color\\)\n- \\(pyramid cx cy cz baseSize height color fill=rgba(...)\\)\n- \\(helix cx cy cz radius height turns color\\)  and  \\(spiral cx cy radius turns color\\)\n- \\(axes2d originX originY scale xmin xmax ymin ymax color grid step=1\\)  (labelled 2D axes with ticks)\n- \\(plot \"sin(x)/x\" xmin xmax originX originY scale color width=3\\)  (graphs any f(x); supports sin cos tan sqrt abs ln log exp pi ^)\n- \\(numberline x y length min max step=1 color\\)\n- \\(pie cx cy radius v1 v2 v3 ...\\)  (auto-coloured slices with % labels)\n- \\(bars x y barWidth maxHeight v1 v2 v3 ...\\)  (auto-coloured bar chart with value labels)\n- \\(angle cx cy radius startDeg endDeg \"θ\" rays color\\)  (add \"square\" for a right-angle mark)\n- \\(dimension x1 y1 x2 y2 \"label\" offset=-24 color\\)  (measurement line with end arrows)\n- \\(camera iso | front | yaw=30 pitch=20 zoom=1.5 duration=1\\)  (animated camera move)\n- \\(background #0f172a\\)\n- \\(wait 0.6\\)\n\nRULES:\n1. Never put Markdown formatting inside \\( ... \\).\n2. Always quote multi-word text strings in text commands: \\(text 400 90 \"Pythagorean Theorem\" cyan\\).\n3. Narrate one concept at a time, then immediately draw the matching geometry.\n4. Keep coordinates well-spaced so labels never overlap.\n5. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.\n6. Put each command on its own line, wrapped in its own \\( ... \\). Never put several commands inside one \\( ... \\) and never separate them with spaces on one line.\n7. Never use $ or $$ around commands, and never put commands in a code block; those are only for real math formulas.";
 
   let overlayEl = null;
   let overlayEngine = null;
@@ -24,7 +24,11 @@
     }
   });
 
-  // KaTeX-aware DOM walker so \( ... \) math delimiters inside ChatGPT replies are preserved cleanly
+  // Walks an assistant message and rebuilds DrawScript text. It copes with:
+  //  - \( ... \) rendered by KaTeX (the original TeX is recovered from the annotation),
+  //  - KaTeX error spans: ChatGPT shows commands it could not render as red text,
+  //  - bare commands where the model forgot the delimiters altogether.
+  // The result is passed through the engine's repair step (one \(command\) per command).
   function extractCleanScriptFromElement(root) {
     let out = "";
 
@@ -38,6 +42,12 @@
 
       const el = node;
       if (el.classList && el.classList.contains("ds3d-actions")) return;
+
+      // The renderer rejected this expression and shows its raw source (red text).
+      if (el.classList && el.classList.contains("katex-error")) {
+        out += "\n" + (el.textContent || "") + "\n";
+        return;
+      }
 
       // Recover original TeX when ChatGPT renders \(cmd\) via KaTeX
       if (el.classList && (el.classList.contains("katex") || el.classList.contains("katex-display"))) {
@@ -53,7 +63,7 @@
         return;
       }
 
-      const isBlock = /^(P|DIV|LI|PRE|H1|H2|H3|H4|BLOCKQUOTE)$/i.test(el.tagName);
+      const isBlock = /^(P|DIV|LI|PRE|H1|H2|H3|H4|BLOCKQUOTE|TR)$/i.test(el.tagName);
       for (const child of el.childNodes) {
         walk(child);
       }
@@ -61,15 +71,31 @@
     }
 
     walk(root);
-    return out
+    const text = out
       .replace(/\\\\\(/g, "\\(")
       .replace(/\\\\\)/g, "\\)")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
+    try {
+      return window.DrawScriptRepair ? window.DrawScriptRepair(text) : text;
+    } catch (e) {
+      return text;
+    }
   }
 
+  // True when the message holds at least one real drawing command (not just math).
   function hasDrawScriptCommands(text) {
-    return /\\\([a-zA-Z]+\s+[^\)]+\\\)/.test(text);
+    const repair = window.DrawScriptRepair;
+    const re = /\\\(([\s\S]*?)\\\)/g;
+    let m;
+    while ((m = re.exec(text))) {
+      if (repair && repair.startsWithCommand) {
+        if (repair.startsWithCommand(m[1])) return true;
+      } else if (/^[a-zA-Z]+\s+\S/.test(m[1].trim())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function ensureOverlay() {
@@ -152,11 +178,15 @@
   }
 
   function injectMessageButtons(msgEl) {
-    if (seenMessages.has(msgEl)) return;
+    // The scan selectors match both a message and the element inside it, so skip when a bar
+    // already exists in this message. The check is against the live DOM (not a remembered
+    // flag) so a bar the site removed while re-rendering is added back.
+    if (msgEl.querySelector(".ds3d-actions")) return;
+    if (msgEl.closest && msgEl.closest("[data-ds3d-has-bar]")) return;
     const raw = extractCleanScriptFromElement(msgEl);
     if (!hasDrawScriptCommands(raw)) return;
 
-    seenMessages.add(msgEl);
+    msgEl.setAttribute("data-ds3d-has-bar", "1");
     const bar = document.createElement("div");
     bar.className = "ds3d-actions";
 
@@ -186,7 +216,8 @@
     bar.appendChild(appBtn);
     msgEl.appendChild(bar);
 
-    if (autoPlayEnabled) {
+    if (autoPlayEnabled && !seenMessages.has(msgEl)) {
+      seenMessages.add(msgEl);
       setTimeout(() => playInOverlay(extractCleanScriptFromElement(msgEl)), 600);
     }
   }

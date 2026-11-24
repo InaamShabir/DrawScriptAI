@@ -1,4 +1,5 @@
 import { compileExpression } from './mathExpr';
+import { repairDrawScript } from './repairScript';
 
 export interface Point3 {
   x: number;
@@ -343,7 +344,8 @@ function animationTimeMs(style: DrawStyle, normalSeconds: number): number {
  * Also normalizes double-escaped \\( ... \\) that some LLM markdown renders emit.
  */
 export function parseDrawScript(source: string): ScriptPart[] {
-  const normalized = source.replace(/\\\\\(/g, '\\(').replace(/\\\\\)/g, '\\)');
+  // Tolerate replies where the model forgot or mangled the \( ... \) delimiters.
+  const normalized = repairDrawScript(source);
   const regex = /\\\(([\s\S]*?)\\\)/g;
   const parts: ScriptPart[] = [];
   let last = 0;
