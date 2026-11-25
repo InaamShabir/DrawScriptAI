@@ -383,7 +383,7 @@
           btn("close", ICON.close, "Close", "ds3d-ico") +
         '</div>' +
       '</div>' +
-      '<div class="ds3d-stage"><canvas class="ds3d-canvas"></canvas><div class="ds3d-toast"></div><div class="ds3d-bar"><i></i></div></div>' +
+      '<div class="ds3d-stage"><canvas class="ds3d-canvas"></canvas><button type="button" class="ds3d-x" data-action="full" title="Exit fullscreen" aria-label="Exit fullscreen">' + ICON.close + '</button><div class="ds3d-toast"></div><div class="ds3d-bar"><i></i></div></div>' +
       '<div class="ds3d-caption"></div>' +
       '<div class="ds3d-tools">' +
         btn("replay", ICON.replay, "Replay", "ds3d-pri") +
@@ -586,7 +586,7 @@
   }
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && overlay && overlay.classList.contains("open")) { closeOverlay(); return; }
+    if (e.key === "Escape" && overlay && overlay.classList.contains("open")) { if (S.overlayMode === "fullscreen") { save({ overlayMode: "floating" }); setTimeout(() => engine.resize(), 60); } else closeOverlay(); return; }
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       const c = findComposer();
       if (c && composerText(c).indexOf("DrawScript 3D") !== -1) { waiting = true; status("Sent — waiting for the DrawScript reply…", "busy"); }

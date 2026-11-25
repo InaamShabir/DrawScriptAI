@@ -68,6 +68,13 @@
 .ds3d-sel { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 6px 0 10px; border-radius: 10px; background: rgba(148,163,184,.14); font-size: 12px; color: var(--ds-mute); }
 .ds3d-sel select { all: unset; cursor: pointer; color: var(--ds-fg); font-weight: 600; padding: 6px 8px; border-radius: 8px; background: rgba(0,0,0,.25); }
 .ds3d-sel select option { color: #0f172a; background: #fff; }
+.ds3d-x { all: unset; display: none; position: absolute; top: 12px; right: 12px; z-index: 3; width: 44px; height: 44px; border-radius: 50%; place-items: center; cursor: pointer; background: rgba(15,23,42,.72); color: #fff; border: 1px solid rgba(255,255,255,.25); backdrop-filter: blur(6px); }
+.ds3d-x:hover { background: rgba(15,23,42,.92); }
+.ds3d-x svg { width: 20px; height: 20px; }
+/* Fullscreen = canvas only, with a cross in the corner. */
+.ds3d-overlay.fullscreen .ds3d-head, .ds3d-overlay.fullscreen .ds3d-caption, .ds3d-overlay.fullscreen .ds3d-tools { display: none; }
+.ds3d-overlay.fullscreen .ds3d-x { display: grid; top: max(12px, env(safe-area-inset-top)); }
+.ds3d-overlay.fullscreen .ds3d-stage { aspect-ratio: auto; min-height: 0; flex: 1; }
 html.ds3d-lock { overflow: hidden; }
 
 /* ---- phones ---- */
