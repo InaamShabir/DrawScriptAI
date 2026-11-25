@@ -79,12 +79,18 @@
   // ---------- detection ----------
   function hasDraw(text) {
     if (!text) return false;
-    return /\\\((?:point|dot|line|arrow|doublearrow|circle|ellipse|arc|rect|rectangle|roundrect|triangle|polygon|polyline|quadratic|bezier|cubic|cylinder|cone|text|label|highlight|cross|bracket|grid|axes|axes2d|plot|function|pie|bars|angle|dimension|numberline|sphere|cube|box|pyramid|helix|spiral|star|ngon|regular|pentagon|hexagon|heptagon|octagon|camera|background|image|clear|wait)\b/i.test(repair(text));
+    return /\\\(\s*(?:point|dot|line|arrow|doublearrow|circle|ellipse|arc|rect|rectangle|roundrect|triangle|polygon|polyline|quadratic|bezier|cubic|cylinder|cone|text|label|highlight|cross|bracket|grid|axes|axes2d|plot|function|pie|bars|angle|dimension|numberline|sphere|cube|box|pyramid|helix|spiral|star|ngon|regular|pentagon|hexagon|heptagon|octagon|camera|background|image|clear|wait)\b/i.test(repair(text));
   }
 
   function extractText(root) {
     if (!root) return "";
-    if (root.tagName === "PRE" || root.tagName === "CODE") return (root.textContent || "").trim();
+    if (root.tagName === "PRE" || root.tagName === "CODE") {
+      const lines = root.querySelectorAll(".cm-line");
+      let t = lines.length ? Array.from(lines).map((l) => l.textContent).join("\n") : (root.textContent || "");
+      // Code-block chrome ("drawscript", "Copy code") is not part of the script.
+      t = t.replace(/^\s*(?:drawscript|text|plaintext)\s*\n/i, "").replace(/^\s*(?:copy code|copy|edit)\s*\n/i, "");
+      return t.replace(/\\\\\(/g, "\\(").replace(/\\\\\)/g, "\\)").trim();
+    }
     let out = "";
     (function walk(node) {
       if (!node) return;
@@ -133,13 +139,24 @@
     return null;
   }
 
+  let lastLen = -1, lastChange = 0;
+  function recentlyChanged() {
+    const msgs = assistantMessages();
+    const m = msgs[msgs.length - 1];
+    const len = m ? (m.textContent || "").length : 0;
+    const now = Date.now();
+    if (len !== lastLen) { lastLen = len; lastChange = now; }
+    return now - lastChange < 2500;
+  }
   function isStreaming() {
-    return !!(
+    const flagged = !!(
       document.querySelector('button[data-testid="stop-button"]') ||
       document.querySelector('button[aria-label*="Stop"]') ||
       document.querySelector(".result-streaming") ||
       document.querySelector('[data-is-streaming="true"]')
     );
+    // Indicators can get stuck (mobile layouts); a reply whose text stopped changing is finished.
+    return flagged && recentlyChanged();
   }
 
   // ---------- composer ----------
@@ -311,7 +328,15 @@
       else if (a === "insert") wrapAndMaybeSend(false);
       else if (a === "draw") {
         const s = findLatestScript();
-        if (s) openAndDraw(s); else status("No DrawScript reply found on this page yet", "warn");
+        if (s) openAndDraw(s);
+        else {
+          // Last resort: hand the newest code block / reply to the engine anyway.
+          const ms = assistantMessages(), m = ms[ms.length - 1];
+          const pres = m ? m.querySelectorAll("pre") : document.querySelectorAll("pre");
+          const raw = pres.length ? extractText(pres[pres.length - 1]) : (m ? extractText(m) : "");
+          if (raw && raw.length > 20) { status("Trying the latest reply…", "warn"); openAndDraw(repair(raw)); }
+          else status("No DrawScript reply found on this page yet", "warn");
+        }
       }
       else if (a === "collapse") save({ dockCollapsed: true });
       else if (a === "expand") save({ dockCollapsed: false });
@@ -548,6 +573,7 @@
       if (isStreaming()) return;
       const latest = findLatestScript();
       if (!primed) { primed = true; lastDrawnSig = latest || ""; return; }
+      if (!latest && waiting) status("Reply finished, but no DrawScript found. Try “Draw latest”.", "warn");
       if (!latest || latest === lastDrawnSig) return;
       if (waiting || S.autoDraw) {
         lastDrawnSig = latest;
