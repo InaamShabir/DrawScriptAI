@@ -535,6 +535,9 @@
       this.bg = "#030712";
       this.stopped = false;
       this.ttsEnabled = true;
+      this.speedMul = 1;
+      this.voice = { name: "", rate: 1, volume: 1 };
+      this.defaultBg = "#030712";
       this.width = canvas.clientWidth || 560;
       this.height = canvas.clientHeight || 380;
       this.dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -566,6 +569,11 @@
     zoomBy(f) {
       this.camera.zoom = clamp(this.camera.zoom * f, 0.1, 10);
       this.render();
+    }
+
+    toDataURL() {
+      this.render();
+      return this.canvas.toDataURL("image/png");
     }
 
     stop() {
@@ -764,7 +772,7 @@
     animate(obj, sec) {
       obj.progress = 0;
       this.scene.push(obj);
-      const ms = Math.max(20, sec * 1000);
+      const ms = Math.max(20, (sec * 1000) / (this.speedMul || 1));
       const start = performance.now();
       return new Promise((resolve) => {
         const frame = (now) => {
@@ -1231,7 +1239,7 @@
       const style = createStyle(args.slice(idx));
 
       if (name === "clear") { this.clear(); return; }
-      if (name === "wait") { await new Promise((r) => setTimeout(r, (nums[0] || 1) * 1000)); return; }
+      if (name === "wait") { await new Promise((r) => setTimeout(r, ((nums[0] || 1) * 1000) / (this.speedMul || 1))); return; }
       if (await this.execExtra(name, args, style)) return;
       if (name === "line" || name === "arrow" || name === "doublearrow") {
         const pts = nums.length >= 6
@@ -1330,9 +1338,12 @@
     async play(source) {
       this.stop();
       this.stopped = false;
-      this.bg = "#030712";
+      this.playing = true;
+      this.bg = this.defaultBg;
       this.clear();
       const parts = parseScript(source);
+      this.total = parts.length;
+      this.done = 0;
       for (const part of parts) {
         if (this.stopped) break;
         if (part.type === "speech") {
@@ -1340,16 +1351,28 @@
           if (this.ttsEnabled && window.speechSynthesis) {
             await new Promise((res) => {
               const u = new SpeechSynthesisUtterance(part.text);
+              u.rate = clamp((this.voice.rate || 1) * Math.min(1.6, Math.max(0.8, this.speedMul || 1)), 0.5, 2.5);
+              u.volume = clamp(this.voice.volume == null ? 1 : this.voice.volume, 0, 1);
+              if (this.voice.name) {
+                const v = window.speechSynthesis.getVoices().find((x) => x.name === this.voice.name);
+                if (v) u.voice = v;
+              }
               u.onend = res; u.onerror = res;
               window.speechSynthesis.speak(u);
             });
+          } else {
+            // No voice: hold the caption long enough to read it.
+            const ms = Math.min(4000, 500 + part.text.length * 38) / (this.speedMul || 1);
+            await new Promise((res) => setTimeout(res, this.noReadPause === false ? 0 : ms));
           }
         } else if (part.type === "draw") {
           this.onStatus("Drawing: " + part.command);
           await this.exec(part.command).catch(() => {});
         }
+        this.done++;
       }
-      if (!this.stopped) this.onStatus("Finished · Drag canvas to orbit in 3D");
+      this.playing = false;
+      if (!this.stopped) { this.done = this.total; this.onStatus("Finished · drag to orbit, scroll to zoom"); }
     }
   }
 

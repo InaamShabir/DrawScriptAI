@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "DrawScript 3D — ChatGPT & Claude Canvas Bridge",
-  "version": "1.0.0",
-  "description": "Reads DrawScript \\(command\\) explanations from ChatGPT & Claude web pages and renders interactive 3D narrated lessons.",
-  "permissions": ["storage", "activeTab"],
+  "version": "2.0.0",
+  "description": "Turn ChatGPT and Claude answers into animated, narrated 3D drawing lessons. One click to ask, automatic drawing, voice, themes and PNG export.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
@@ -16,7 +19,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "DrawScript 3D Bridge",
+    "default_title": "DrawScript 3D",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -35,8 +38,14 @@
         "https://chat.openai.com/*",
         "https://claude.ai/*"
       ],
-      "js": ["engine.js", "content.js"],
-      "css": ["styles.css"],
+      "js": [
+        "prompt.js",
+        "engine.js",
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -45,8 +54,14 @@
         "http://localhost:3000/*",
         "https://*.run.app/*"
       ],
-      "js": ["bridge.js"],
+      "js": [
+        "bridge.js"
+      ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "options_ui": {
+    "page": "popup.html?tab=1",
+    "open_in_tab": true
+  }
 }

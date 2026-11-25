@@ -1,58 +1,74 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>DrawScript 3D Bridge</title>
-  <style>
-    body {
-      margin: 0;
-      width: 320px;
-      padding: 16px;
-      background: #0b1120;
-      color: #f1f5f9;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-    h1 { font-size: 15px; margin: 0 0 4px; }
-    p { font-size: 12px; color: #94a3b8; margin: 0 0 14px; line-height: 1.45; }
-    label { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid #1e293b; }
-    .field { margin-top: 12px; }
-    .field span { display: block; font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
-    input[type="text"] {
-      width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 6px;
-      border: 1px solid #334155; background: #0f172a; color: #f8fafc; font-size: 12px;
-    }
-    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
-    button {
-      padding: 8px 10px; border-radius: 7px; border: 1px solid #334155;
-      background: #1e293b; color: #f8fafc; font-size: 12px; font-weight: 600; cursor: pointer;
-    }
-    button.primary { background: #0284c7; border-color: #0ea5e9; }
-    .note { margin-top: 10px; font-size: 11px; color: #38bdf8; min-height: 15px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DrawScript 3D</title>
+<link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1>DrawScript 3D Bridge</h1>
-  <p>Reads DrawScript commands directly from your ChatGPT or Claude page—works on Free &amp; Plus accounts.</p>
+<main>
+  <header>
+    <span class="logo"><svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5zm0 2.2 6.4 3.5L12 11.2 5.6 7.7 12 4.2zM5 9.4l6 3.3v6.6l-6-3.3V9.4zm8 9.9v-6.6l6-3.3v6.6l-6 3.3z"/></svg></span>
+    <div><h1>DrawScript 3D</h1><p>Turn ChatGPT &amp; Claude answers into animated 3D lessons.</p></div>
+  </header>
 
-  <label>
-    <span>Auto-play new AI replies</span>
-    <input type="checkbox" id="autoPlay" />
-  </label>
-  <label>
-    <span>Voice narration (TTS)</span>
-    <input type="checkbox" id="ttsEnabled" checked />
-  </label>
-
-  <div class="field">
-    <span>DrawScript Studio App URL</span>
-    <input type="text" id="appUrl" />
+  <div class="quick">
+    <button id="draw" class="pri">Draw latest reply on this page</button>
+    <button id="studio">Open Studio</button>
+    <button id="copyPrompt">Copy prompt</button>
   </div>
+  <p id="msg" class="msg" role="status"></p>
 
-  <div class="actions">
-    <button id="copyPrompt">Copy Prompt</button>
-    <button id="openStudio" class="primary">Open Studio</button>
-  </div>
-  <div id="note" class="note"></div>
-  <script src="popup.js"></script>
+  <section>
+    <h2>Behaviour</h2>
+    <label class="row"><span>Auto-draw when a reply finishes<small>Opens the canvas by itself</small></span><input type="checkbox" id="autoDraw"></label>
+    <label class="row"><span>“Ask &amp; Draw” also presses Send<small>Off = just insert the prompt</small></span><input type="checkbox" id="autoSend"></label>
+    <label class="row"><span>Show captions<small>Narration text under the canvas</small></span><input type="checkbox" id="captions"></label>
+  </section>
+
+  <section>
+    <h2>Voice</h2>
+    <label class="row"><span>Read narration aloud</span><input type="checkbox" id="ttsEnabled"></label>
+    <label class="col"><span>Voice</span><select id="voiceName"></select></label>
+    <label class="col"><span>Voice speed <b id="rateV"></b></span><input type="range" id="voiceRate" min="0.6" max="1.8" step="0.1"></label>
+    <label class="col"><span>Volume <b id="volV"></b></span><input type="range" id="voiceVolume" min="0" max="1" step="0.05"></label>
+    <button id="testVoice" class="ghost">Test voice</button>
+  </section>
+
+  <section>
+    <h2>Canvas</h2>
+    <label class="col"><span>Animation speed</span>
+      <select id="speed"><option value="0.5">0.5× slow</option><option value="1">1× normal</option><option value="1.5">1.5×</option><option value="2">2× fast</option><option value="3">3× very fast</option></select></label>
+    <label class="col"><span>Theme</span>
+      <select id="theme"><option value="dark">Dark</option><option value="chalkboard">Chalkboard</option><option value="blueprint">Blueprint</option><option value="paper">Paper (light)</option></select></label>
+    <label class="col"><span>Window</span>
+      <select id="overlayMode"><option value="floating">Floating panel</option><option value="fullscreen">Fullscreen</option></select></label>
+    <label class="col"><span>Dock position</span>
+      <select id="dockSide"><option value="right">Right</option><option value="left">Left</option></select></label>
+  </section>
+
+  <section>
+    <h2>Lesson prompt</h2>
+    <label class="col"><span>Subject</span>
+      <select id="subject"><option value="any">Any</option><option value="math">Maths</option><option value="physics">Physics</option><option value="geometry">Geometry</option><option value="stats">Statistics</option><option value="science">Science</option></select></label>
+    <label class="col"><span>Level</span>
+      <select id="level"><option value="auto">Auto</option><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>
+    <label class="col"><span>Length</span>
+      <select id="length"><option value="short">Short</option><option value="medium">Medium</option><option value="detailed">Detailed</option></select></label>
+    <label class="col"><span>Narration language</span>
+      <select id="language"><option>English</option><option>Hindi</option><option>Urdu</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option><option>Portuguese</option><option>Chinese</option><option>Japanese</option></select></label>
+    <label class="col"><span>Extra instructions (optional)</span><textarea id="extra" rows="2" placeholder="e.g. Use real-world examples"></textarea></label>
+  </section>
+
+  <section>
+    <h2>Studio</h2>
+    <label class="col"><span>Studio URL</span><input type="text" id="appUrl" placeholder="https://…" spellcheck="false"></label>
+  </section>
+
+  <footer><button id="reset" class="ghost">Reset to defaults</button><span id="ver"></span></footer>
+</main>
+<script src="prompt.js"></script>
+<script src="popup.js"></script>
 </body>
 </html>

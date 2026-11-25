@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import {
   buildExtensionFiles,
+  studioBaseUrl,
   downloadExtensionZip,
 } from '../extension/extensionFiles';
 import { extractDrawScriptFromResponse } from '../engine/drawscriptEngine';
@@ -19,11 +20,11 @@ interface ExtensionStudioProps {
 }
 
 const SAMPLE_KATEX_DOM_HTML = `<div data-message-author-role="assistant">
-  <p>Let us draw a 3D cylinder and highlight its circular base:</p>
-  <p><span class="katex"><annotation encoding="application/x-tex">axes 400 360 0 180 color=#64748b width=2</annotation></span></p>
-  <p><span class="katex"><annotation encoding="application/x-tex">cylinder 400 360 0 75 150 #38bdf8 width=1.4 fill=rgba(56,189,248,0.16)</annotation></span></p>
-  <p>Notice the circular radius at the top rim:</p>
-  <p>\\(text 400 185 "Cylinder h=150, r=75" 0 #facc15 font="18px sans-serif" align=center\\)</p>
+  <pre><code>Let us draw a 3D cylinder and highlight its circular base.
+\\(axes 400 360 0 180 color=#64748b width=2\\)
+\\(cylinder 400 360 0 75 150 #38bdf8 width=1.4 fill=rgba(56,189,248,0.16)\\)
+Notice the circular radius at the top rim.
+\\(text 400 185 "Cylinder h=150, r=75" 0 #facc15 font="18px sans-serif" align=center\\)</code></pre>
 </div>`;
 
 function runDomExtractorSimulation(input: string): {
@@ -79,8 +80,7 @@ function runDomExtractorSimulation(input: string): {
 export const ExtensionStudio: React.FC<ExtensionStudioProps> = ({
   onLoadIntoCanvas,
 }) => {
-  const defaultOrigin =
-    typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  const defaultOrigin = studioBaseUrl();
 
   const [bridgeOrigin, setBridgeOrigin] = useState(defaultOrigin);
   const [downloading, setDownloading] = useState(false);

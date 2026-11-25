@@ -52,13 +52,13 @@ AVAILABLE COMMANDS (wrap each inside \\( and \\)):
 - \\(wait 0.6\\)
 
 RULES:
-1. Never put Markdown formatting inside \\( ... \\).
-2. Always quote multi-word text strings in text commands: \\(text 400 90 "Pythagorean Theorem" cyan\\).
-3. Narrate one concept at a time, then immediately draw the matching geometry.
-4. Keep coordinates well-spaced so labels never overlap.
-5. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.
-6. Put each command on its own line, wrapped in its own \\( ... \\). Never put several commands inside one \\( ... \\) and never separate them with spaces on one line.
-7. Never use $ or $$ around commands, and never put commands in a code block; those are only for real math formulas.`;
+1. Put your ENTIRE reply inside ONE fenced code block labeled \`\`\`drawscript so the DrawScript Chrome Extension can read and render it. Write nothing outside that block.
+2. Inside the block, write narration sentences and drawing commands. Put every command on its own line, wrapped in its own \\( ... \\). Never put several commands inside one \\( ... \\).
+3. Never use $ or $$ and never use Markdown formatting inside the block.
+4. Always quote multi-word text strings in text commands: \\(text 400 90 "Pythagorean Theorem" cyan\\).
+5. Narrate one concept at a time, then immediately draw the matching geometry.
+6. Keep coordinates well-spaced so labels never overlap.
+7. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.`;
 
 export const LESSON_PRESETS: LessonPreset[] = [
   {

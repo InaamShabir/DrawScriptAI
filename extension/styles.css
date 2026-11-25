@@ -1,138 +1,84 @@
-/* Scoped styles for DrawScript 3D ChatGPT/Claude Extension */
-.ds3d-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(148, 163, 184, 0.2);
-}
+/* DrawScript 3D v2 — all rules are scoped under .ds3d-* to stay clear of the host site */
+:root { --ds-bg:#0b1120; --ds-card:#0f172a; --ds-line:rgba(148,163,184,.22); --ds-fg:#f1f5f9; --ds-mute:#94a3b8; --ds-acc:#38bdf8; --ds-acc2:#818cf8; }
+.ds3d-dock, .ds3d-overlay, .ds3d-code-bar { font: 13px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color: var(--ds-fg); box-sizing: border-box; }
+.ds3d-dock *, .ds3d-overlay *, .ds3d-code-bar * { box-sizing: border-box; }
+.ds3d-dock svg, .ds3d-overlay svg, .ds3d-code-bar svg { width: 16px; height: 16px; fill: currentColor; flex: none; }
 
-.ds3d-action-btn {
-  appearance: none;
-  border: 1px solid #334155;
-  background: #0f172a;
-  color: #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: system-ui, -apple-system, sans-serif;
-}
+/* ---- dock ---- */
+.ds3d-dock { position: fixed; right: 16px; bottom: 96px; z-index: 2147483000; width: 272px; }
+.ds3d-dock.left { right: auto; left: 16px; }
+.ds3d-dock-card { background: var(--ds-card); border: 1px solid var(--ds-line); border-radius: 16px; padding: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.45); backdrop-filter: blur(10px); }
+.ds3d-dock-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ds3d-logo { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg,var(--ds-acc),var(--ds-acc2)); color: #04101f; }
+.ds3d-brand { flex: 1; font-weight: 700; letter-spacing: .01em; }
+.ds3d-icon { all: unset; cursor: pointer; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--ds-mute); font-size: 14px; }
+.ds3d-icon:hover { background: rgba(148,163,184,.16); color: var(--ds-fg); }
+.ds3d-dock-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ds3d-dock-actions button, .ds3d-chip, .ds3d-btn, .ds3d-mini { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; font: 600 12px/1 system-ui,sans-serif; color: var(--ds-fg); min-height: 36px; padding: 0 10px; background: rgba(148,163,184,.14); border: 1px solid transparent; user-select: none; -webkit-tap-highlight-color: transparent; }
+.ds3d-dock-actions button:hover, .ds3d-chip:hover, .ds3d-btn:hover, .ds3d-mini:hover { background: rgba(148,163,184,.26); }
+.ds3d-dock-actions .ds3d-pri { grid-column: 1 / -1; min-height: 42px; font-size: 14px; background: linear-gradient(135deg,var(--ds-acc),var(--ds-acc2)); color: #04101f; }
+.ds3d-dock-actions .ds3d-pri:hover { filter: brightness(1.08); }
+.ds3d-toggles { display: flex; gap: 6px; margin-top: 8px; }
+.ds3d-chip { flex: 1; min-height: 32px; font-weight: 500; color: var(--ds-mute); }
+.ds3d-chip input { display: none; }
+.ds3d-chip:has(input:checked) { background: rgba(56,189,248,.18); color: #bae6fd; border-color: rgba(56,189,248,.4); }
+.ds3d-status { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px; border-radius: 8px; background: rgba(0,0,0,.25); color: var(--ds-mute); font-size: 11.5px; }
+.ds3d-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; flex: none; display: inline-block; }
+.ds3d-dot.ok { background: #34d399; } .ds3d-dot.warn { background: #fbbf24; } .ds3d-dot.error { background: #f87171; }
+.ds3d-dot.busy { background: var(--ds-acc); animation: ds3d-pulse 1s infinite; }
+@keyframes ds3d-pulse { 50% { opacity: .35; } }
+.ds3d-fab { all: unset; display: none; cursor: pointer; width: 52px; height: 52px; border-radius: 50%; place-items: center; box-sizing: border-box; background: linear-gradient(135deg,var(--ds-acc),var(--ds-acc2)); color: #04101f; box-shadow: 0 8px 26px rgba(0,0,0,.45); margin-left: auto; }
+.ds3d-fab svg { width: 24px; height: 24px; }
+.ds3d-dock.collapsed { width: auto; }
+.ds3d-dock.collapsed .ds3d-dock-card { display: none; }
+.ds3d-dock.collapsed .ds3d-fab { display: grid; }
+.ds3d-dock.collapsed.left .ds3d-fab { margin-left: 0; }
 
-.ds3d-action-btn:hover {
-  background: #1e293b;
-}
+/* ---- code bar ---- */
+.ds3d-code-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 6px 0; padding: 8px 10px; border-radius: 12px; background: #0f172a; border: 1px solid var(--ds-line); color: var(--ds-fg); }
+.ds3d-code-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 12px; }
+.ds3d-code-actions { display: inline-flex; gap: 6px; }
+.ds3d-mini { min-height: 32px; }
+.ds3d-mini.pri { background: linear-gradient(135deg,var(--ds-acc),var(--ds-acc2)); color: #04101f; }
 
-.ds3d-action-primary {
-  background: #0284c7;
-  border-color: #0ea5e9;
-  color: #ffffff;
-}
+/* ---- overlay ---- */
+.ds3d-overlay { display: none; position: fixed; right: 16px; bottom: 16px; z-index: 2147483200; width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); flex-direction: column; background: var(--ds-card); border: 1px solid var(--ds-line); border-radius: 18px; overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+.ds3d-overlay.open { display: flex; }
+.ds3d-overlay.fullscreen { inset: 0; right: 0; bottom: 0; width: 100vw; max-height: none; height: 100dvh; border-radius: 0; border: 0; }
+.ds3d-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--ds-line); }
+.ds3d-title { flex: 1; font-weight: 700; display: flex; flex-direction: column; min-width: 0; }
+.ds3d-sub { font-weight: 400; color: var(--ds-mute); font-size: 11px; }
+.ds3d-head-actions { display: flex; gap: 4px; }
+.ds3d-ico { min-height: 34px; width: 34px; padding: 0; background: transparent; }
+.ds3d-ico span { display: none; }
+.ds3d-stage { position: relative; flex: 1; min-height: 240px; aspect-ratio: 16 / 10; background: #000; touch-action: none; }
+.ds3d-overlay.fullscreen .ds3d-stage { aspect-ratio: auto; }
+.ds3d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.ds3d-canvas:active { cursor: grabbing; }
+.ds3d-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(148,163,184,.15); }
+.ds3d-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--ds-acc),var(--ds-acc2)); transition: width .25s; }
+.ds3d-toast { position: absolute; top: 10px; left: 50%; transform: translate(-50%,-8px); opacity: 0; transition: .2s; background: rgba(15,23,42,.92); border: 1px solid var(--ds-line); padding: 6px 12px; border-radius: 999px; font-size: 12px; pointer-events: none; }
+.ds3d-toast.show { opacity: 1; transform: translate(-50%,0); }
+.ds3d-caption { padding: 10px 14px; min-height: 44px; max-height: 96px; overflow-y: auto; font-size: 14px; line-height: 1.45; color: #e2e8f0; border-top: 1px solid var(--ds-line); }
+.ds3d-overlay.no-caption .ds3d-caption { display: none; }
+.ds3d-tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 10px; border-top: 1px solid var(--ds-line); }
+.ds3d-tools .ds3d-btn { min-height: 34px; }
+.ds3d-tools .ds3d-pri { background: linear-gradient(135deg,var(--ds-acc),var(--ds-acc2)); color: #04101f; }
+.ds3d-btn.off { color: var(--ds-mute); }
+.ds3d-sel { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 6px 0 10px; border-radius: 10px; background: rgba(148,163,184,.14); font-size: 12px; color: var(--ds-mute); }
+.ds3d-sel select { all: unset; cursor: pointer; color: var(--ds-fg); font-weight: 600; padding: 6px 8px; border-radius: 8px; background: rgba(0,0,0,.25); }
+.ds3d-sel select option { color: #0f172a; background: #fff; }
+html.ds3d-lock { overflow: hidden; }
 
-.ds3d-action-primary:hover {
-  background: #0369a1;
+/* ---- phones ---- */
+@media (max-width: 640px) {
+  .ds3d-dock { left: 10px; right: 10px; width: auto; bottom: 84px; }
+  .ds3d-dock.collapsed { left: auto; right: 12px; }
+  .ds3d-dock.collapsed.left { left: 12px; right: auto; }
+  .ds3d-overlay { inset: 0; width: 100vw; height: 100dvh; max-height: none; border-radius: 0; border: 0; }
+  .ds3d-stage { aspect-ratio: auto; min-height: 0; }
+  .ds3d-tools { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .ds3d-tools .ds3d-btn { flex: 1 1 auto; }
+  .ds3d-ico { width: 40px; min-height: 40px; }
 }
-
-.ds3d-composer-btn {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 2147483000;
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(56, 189, 248, 0.5);
-  background: rgba(15, 23, 42, 0.96);
-  color: #7dd3fc;
-  border-radius: 8px;
-  padding: 5px 12px;
-  font: 600 12px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-  white-space: nowrap;
-}
-
-.ds3d-composer-btn:hover {
-  background: rgba(2, 132, 199, 0.25);
-}
-
-.ds3d-overlay {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: min(620px, calc(100vw - 40px));
-  height: 480px;
-  z-index: 2147483647;
-  display: none;
-  flex-direction: column;
-  background: #0b1120;
-  border: 1px solid #334155;
-  border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
-  overflow: hidden;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-.ds3d-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
-  background: #0f172a;
-  border-bottom: 1px solid #1e293b;
-}
-
-.ds3d-title {
-  color: #f8fafc;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.ds3d-controls {
-  display: flex;
-  gap: 6px;
-}
-
-.ds3d-btn {
-  border: 1px solid #334155;
-  background: #1e293b;
-  color: #e2e8f0;
-  border-radius: 6px;
-  padding: 4px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.ds3d-btn-primary {
-  background: #0284c7;
-  border-color: #0ea5e9;
-  color: #ffffff;
-}
-
-.ds3d-stage {
-  flex: 1;
-  position: relative;
-  background: #030712;
-}
-
-.ds3d-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  cursor: grab;
-}
-
-.ds3d-caption {
-  padding: 9px 14px;
-  background: #0f172a;
-  border-top: 1px solid #1e293b;
-  color: #cbd5e1;
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+@media (prefers-reduced-motion: reduce) { .ds3d-dot.busy { animation: none; } .ds3d-toast, .ds3d-bar i { transition: none; } }

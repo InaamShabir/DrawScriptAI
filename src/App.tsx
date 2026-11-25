@@ -10,7 +10,7 @@ import { ExtensionStudio } from './components/ExtensionStudio';
 import { CommandDocs } from './components/CommandDocs';
 import { LESSON_PRESETS } from './data/presets';
 import { extractDrawScriptFromResponse } from './engine/drawscriptEngine';
-import { downloadExtensionZip } from './extension/extensionFiles';
+import { downloadExtensionZip, studioBaseUrl } from './extension/extensionFiles';
 
 type ActiveTab = 'canvas' | 'prompt' | 'extension' | 'docs';
 
@@ -81,9 +81,7 @@ export default function App() {
     setDownloadingExt(true);
     setDownloadError(null);
     try {
-      const origin =
-        typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-      await downloadExtensionZip(origin);
+      await downloadExtensionZip(studioBaseUrl());
     } catch (err) {
       setDownloadError(err instanceof Error ? err.message : 'Could not package the extension.');
     } finally {
