@@ -58,7 +58,8 @@ RULES:
 4. Always quote multi-word text strings in text commands: \\(text 400 90 "Pythagorean Theorem" cyan\\).
 5. Narrate one concept at a time, then immediately draw the matching geometry.
 6. Keep coordinates well-spaced so labels never overlap.
-7. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.`;
+7. Start every new idea with \\(clear\\) on its own line so each screen shows only one idea (at most 8 shapes and labels). Never draw labels on top of each other.
+8. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.`;
 
 export const LESSON_PRESETS: LessonPreset[] = [
   {

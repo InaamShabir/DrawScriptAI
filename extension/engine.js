@@ -538,6 +538,7 @@
       this.speedMul = 1;
       this.voice = { name: "", rate: 1, volume: 1 };
       this.defaultBg = "#030712";
+      this.autoClear = 0;
       this.width = canvas.clientWidth || 560;
       this.height = canvas.clientHeight || 380;
       this.dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -1347,6 +1348,8 @@
       for (const part of parts) {
         if (this.stopped) break;
         if (part.type === "speech") {
+          // Keep the screen readable: wipe it once a scene is full, before the next idea.
+          if (this.autoClear && this.scene.length >= this.autoClear) this.clear();
           this.onStatus(part.text);
           if (this.ttsEnabled && window.speechSynthesis) {
             await new Promise((res) => {

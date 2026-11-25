@@ -3,7 +3,7 @@
   "use strict";
   const DEFAULTS = {
     autoDraw: true, autoSend: true, ttsEnabled: true, voiceName: "", voiceRate: 1, voiceVolume: 1,
-    speed: 1, theme: "dark", captions: true, overlayMode: "floating", level: "auto", length: "medium",
+    speed: 1, autoClear: 8, theme: "dark", captions: true, overlayMode: "floating", level: "auto", length: "medium",
     subject: "any", language: "English", extra: "", dockCollapsed: false, dockSide: "right", appUrl: ""
   };
   const DEFAULT_APP_URL = "https://inaamshabir.github.io/drawScriptAI";
@@ -39,7 +39,7 @@
     $("volV").textContent = Math.round(Number(S.voiceVolume) * 100) + "%";
   }
 
-  const NUMERIC = { speed: 1, voiceRate: 1, voiceVolume: 1 };
+  const NUMERIC = { speed: 1, autoClear: 1, voiceRate: 1, voiceVolume: 1 };
   document.querySelectorAll("input,select,textarea").forEach((el) => {
     const ev = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
     el.addEventListener(ev, () => {

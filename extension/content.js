@@ -12,6 +12,7 @@
     voiceRate: 1,
     voiceVolume: 1,
     speed: 1,              // animation speed multiplier
+    autoClear: 8,          // wipe the screen before the next idea once it holds this many objects (0 = off)
     theme: "dark",         // dark | chalkboard | blueprint | paper
     captions: true,
     overlayMode: "floating", // floating | fullscreen
@@ -71,6 +72,7 @@
     const t = THEMES[S.theme] || THEMES.dark;
     engine.ttsEnabled = !!S.ttsEnabled;
     engine.speedMul = Number(S.speed) || 1;
+    engine.autoClear = Number(S.autoClear) || 0;
     engine.voice = { name: S.voiceName, rate: Number(S.voiceRate) || 1, volume: Number(S.voiceVolume) };
     engine.defaultBg = t.bg;
     if (!engine.playing) { engine.bg = t.bg; engine.render(); }
