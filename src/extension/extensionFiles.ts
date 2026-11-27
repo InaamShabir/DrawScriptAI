@@ -14,6 +14,11 @@ const DESCRIPTIONS: Record<string, string> = {
   'engine.js': 'Canvas engine: parser, repair tolerance, every draw command, speed / voice / theme controls and PNG export.',
   'content.js': 'Runs on ChatGPT & Claude: dock, prompt insertion, auto-draw after the reply finishes, code-block bars and the 3D overlay.',
   'styles.css': 'Styles for the dock, code bars and overlay (responsive, touch friendly).',
+  'player.js': 'Lesson player: step controls, pause, seek, speed, themes, PNG, video recording and sharing.',
+  'library.js': 'Saves every lesson you draw so you can reopen it later.',
+  'lab.html': 'DrawScript Lab page: ask an AI directly, paste a script, browse saved lessons.',
+  'lab.css': 'Styles for the Lab page.',
+  'lab.js': 'Lab logic: Gemini / OpenAI calls with your own key, paste-and-draw and the library.',
   'popup.html': 'Popup and options page markup.',
   'popup.css': 'Popup and options page styles.',
   'popup.js': 'Popup and options logic; every setting saves instantly.',
@@ -23,7 +28,8 @@ const DESCRIPTIONS: Record<string, string> = {
 };
 
 const ORDER = [
-  'manifest.json', 'content.js', 'engine.js', 'prompt.js', 'styles.css',
+  'manifest.json', 'content.js', 'engine.js', 'player.js', 'library.js', 'prompt.js', 'styles.css',
+  'lab.html', 'lab.js', 'lab.css',
   'popup.html', 'popup.js', 'popup.css', 'background.js', 'bridge.js', 'README.md',
 ];
 

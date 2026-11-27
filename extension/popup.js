@@ -68,6 +68,7 @@
     navigator.clipboard.writeText(text).then(() => msg("Prompt copied"), () => msg("Copy blocked"));
   });
 
+  $("lab").addEventListener("click", () => chrome.runtime.sendMessage({ type: "OPEN_LAB" }));
   $("studio").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "OPEN_DRAWSCRIPT_APP", script: "", source: "popup" });
   });

@@ -10,6 +10,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return;
   }
 
+  if (message.type === "OPEN_LAB") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("lab.html" + (message.id ? "?id=" + encodeURIComponent(message.id) : "")) });
+    sendResponse({ ok: true });
+    return;
+  }
+
   if (message.type === "OPEN_DRAWSCRIPT_APP") {
     const script = message.script || "";
     const source = message.source || "chatgpt";

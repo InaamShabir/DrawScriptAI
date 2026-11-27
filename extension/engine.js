@@ -539,6 +539,14 @@
       this.voice = { name: "", rate: 1, volume: 1 };
       this.defaultBg = "#030712";
       this.autoClear = 0;
+      this.runId = 0;
+      this.paused = false;
+      this.instant = false;
+      this.steps = [];
+      this.parts = null;
+      this.currentStep = 0;
+      this.onStep = () => {};
+      this.onEnd = () => {};
       this.width = canvas.clientWidth || 560;
       this.height = canvas.clientHeight || 380;
       this.dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -577,8 +585,20 @@
       return this.canvas.toDataURL("image/png");
     }
 
+    pause() {
+      this.paused = true;
+      if (window.speechSynthesis && window.speechSynthesis.speaking) window.speechSynthesis.pause();
+    }
+
+    resume() {
+      this.paused = false;
+      if (window.speechSynthesis) window.speechSynthesis.resume();
+    }
+
     stop() {
       this.stopped = true;
+      this.paused = false;
+      this.runId = (this.runId || 0) + 1;
       if (window.speechSynthesis) window.speechSynthesis.cancel();
     }
 
@@ -773,11 +793,15 @@
     animate(obj, sec) {
       obj.progress = 0;
       this.scene.push(obj);
+      if (this.instant) { obj.progress = 1; return Promise.resolve(); }
+      const rid = this.runId;
       const ms = Math.max(20, (sec * 1000) / (this.speedMul || 1));
-      const start = performance.now();
+      let start = performance.now(), last = start;
       return new Promise((resolve) => {
         const frame = (now) => {
-          if (this.stopped) { obj.progress = 1; this.render(); resolve(); return; }
+          if (this.stopped || rid !== this.runId) { obj.progress = 1; this.render(); resolve(); return; }
+          if (this.paused) { start += now - last; last = now; requestAnimationFrame(frame); return; }
+          last = now;
           const raw = clamp((now - start) / ms, 0, 1);
           obj.progress = raw;
           this.render();
@@ -788,12 +812,32 @@
       });
     }
 
+    // Moves a new label down until it no longer sits on top of another label.
+    avoidOverlap(o) {
+      const size = (f) => { const m = /(\d+(?:\.\d+)?)px/.exec(f || ""); return m ? Number(m[1]) : 16; };
+      const box = (t) => {
+        const sz = size(t.font), w = String(t.text).length * sz * 0.56, h = sz * 1.25;
+        const x = t.align === "center" ? t.position.x - w / 2 : t.align === "right" ? t.position.x - w : t.position.x;
+        return { x, y: t.position.y - h * 0.8, w, h };
+      };
+      const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      const others = this.scene.filter((t) => t.type === "text" && t !== o && Math.abs((t.position.z || 0) - (o.position.z || 0)) < 40);
+      for (let i = 0; i < 10; i++) {
+        const mine = box(o);
+        const clash = others.find((t) => hit(mine, box(t)));
+        if (!clash) break;
+        o.position = Object.assign({}, o.position, { y: o.position.y + mine.h + 2 });
+      }
+    }
+
     // Label that is visible immediately (used by compound commands such as pie / axes2d).
     addText(x, y, z, text, color, font, align) {
-      this.scene.push({
+      const o = {
         type: "text", progress: 1, position: point3(x, y, z), text,
         color: color || "#94a3b8", font: font || "13px sans-serif", align: align || "center", opacity: 1
-      });
+      };
+      this.avoidOverlap(o);
+      this.scene.push(o);
       this.render();
     }
 
@@ -1240,7 +1284,7 @@
       const style = createStyle(args.slice(idx));
 
       if (name === "clear") { this.clear(); return; }
-      if (name === "wait") { await new Promise((r) => setTimeout(r, ((nums[0] || 1) * 1000) / (this.speedMul || 1))); return; }
+      if (name === "wait") { if (this.instant) return; await new Promise((r) => setTimeout(r, ((nums[0] || 1) * 1000) / (this.speedMul || 1))); return; }
       if (await this.execExtra(name, args, style)) return;
       if (name === "line" || name === "arrow" || name === "doublearrow") {
         const pts = nums.length >= 6
@@ -1322,7 +1366,9 @@
           else if (t.startsWith("font=")) font = stripQuotes(t.slice(5));
           else if (t.startsWith("align=")) align = t.slice(6);
         }
-        await this.animate({ type: "text", position: point3(x, y, z), text, color, font, align, opacity: 1 }, 0.3);
+        const to = { type: "text", position: point3(x, y, z), text, color, font, align, opacity: 1 };
+        this.avoidOverlap(to);
+        await this.animate(to, 0.3);
       } else if (name === "highlight") {
         const c = nums.length >= 4 ? point3(nums[0], nums[1], nums[2]) : point3(nums[0], nums[1]);
         const r = nums.length >= 4 ? nums[3] : nums[2];
@@ -1336,22 +1382,77 @@
       }
     }
 
+    // Splits a script into parts and into "steps" (a new step starts at every clear).
+    // When autoClear is on, a clear is inserted before narration once a screen is full.
+    load(source) {
+      const raw = parseScript(source);
+      const parts = [];
+      let drawn = 0;
+      const countable = (c) => !/^(clear|wait|camera|background)\b/i.test(c);
+      for (const part of raw) {
+        if (part.type === "speech" && this.autoClear && drawn >= this.autoClear) {
+          parts.push({ type: "draw", command: "clear", auto: true });
+          drawn = 0;
+        }
+        if (part.type === "draw") {
+          if (/^clear\b/i.test(part.command)) drawn = 0;
+          else if (countable(part.command)) drawn++;
+        }
+        parts.push(part);
+      }
+      const steps = [{ start: 0, title: "" }];
+      parts.forEach((p, i) => {
+        if (p.type === "draw" && /^clear\b/i.test(p.command) && i > 0) {
+          // Skip a clear that is directly followed by another clear or ends the script.
+          steps.push({ start: i, title: "" });
+        }
+      });
+      steps.forEach((st, k) => {
+        const end = k + 1 < steps.length ? steps[k + 1].start : parts.length;
+        const sp = parts.slice(st.start, end).find((p) => p.type === "speech");
+        st.title = sp ? sp.text.replace(/\s+/g, " ").slice(0, 70) : "Step " + (k + 1);
+        st.end = end;
+      });
+      this.parts = parts;
+      this.steps = steps;
+      this.total = parts.length;
+      this.done = 0;
+      this.currentStep = 0;
+      return { parts, steps };
+    }
+
     async play(source) {
+      this.load(source);
+      return this.playFrom(0);
+    }
+
+    async playFrom(stepIndex) {
+      if (!this.parts) return;
       this.stop();
+      const rid = this.runId;
       this.stopped = false;
       this.playing = true;
       this.bg = this.defaultBg;
       this.clear();
-      const parts = parseScript(source);
-      this.total = parts.length;
-      this.done = 0;
-      for (const part of parts) {
-        if (this.stopped) break;
+      const startAt = this.steps[Math.max(0, Math.min(stepIndex || 0, this.steps.length - 1))].start;
+      const stepOf = (i) => {
+        let k = 0;
+        for (let j = 0; j < this.steps.length; j++) if (this.steps[j].start <= i) k = j;
+        return k;
+      };
+      const alive = () => !this.stopped && rid === this.runId;
+      for (let i = 0; i < this.parts.length; i++) {
+        if (!alive()) break;
+        const part = this.parts[i];
+        this.instant = i < startAt;
+        while (this.paused && alive()) await new Promise((r) => setTimeout(r, 80));
+        if (!alive()) break;
+        const k = stepOf(i);
+        if (k !== this.currentStep || i === startAt) { this.currentStep = k; this.onStep(k, this.steps.length); }
         if (part.type === "speech") {
-          // Keep the screen readable: wipe it once a scene is full, before the next idea.
-          if (this.autoClear && this.scene.length >= this.autoClear) this.clear();
           this.onStatus(part.text);
-          if (this.ttsEnabled && window.speechSynthesis) {
+          if (this.instant) { /* skipped while seeking */ }
+          else if (this.ttsEnabled && window.speechSynthesis) {
             await new Promise((res) => {
               const u = new SpeechSynthesisUtterance(part.text);
               u.rate = clamp((this.voice.rate || 1) * Math.min(1.6, Math.max(0.8, this.speedMul || 1)), 0.5, 2.5);
@@ -1365,17 +1466,20 @@
             });
           } else {
             // No voice: hold the caption long enough to read it.
-            const ms = Math.min(4000, 500 + part.text.length * 38) / (this.speedMul || 1);
-            await new Promise((res) => setTimeout(res, this.noReadPause === false ? 0 : ms));
+            let ms = Math.min(4000, 500 + part.text.length * 38) / (this.speedMul || 1);
+            while (ms > 0 && alive()) { await new Promise((r) => setTimeout(r, 60)); if (!this.paused) ms -= 60; }
           }
         } else if (part.type === "draw") {
-          this.onStatus("Drawing: " + part.command);
+          if (!this.instant) this.onStatus("Drawing: " + part.command);
           await this.exec(part.command).catch(() => {});
         }
-        this.done++;
+        this.done = i + 1;
       }
-      this.playing = false;
-      if (!this.stopped) { this.done = this.total; this.onStatus("Finished · drag to orbit, scroll to zoom"); }
+      this.instant = false;
+      if (rid === this.runId) {
+        this.playing = false;
+        if (!this.stopped) { this.done = this.total; this.onStatus("Finished · drag to orbit, scroll to zoom"); this.onEnd(); }
+      }
     }
   }
 

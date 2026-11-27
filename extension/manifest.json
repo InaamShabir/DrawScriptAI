@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "DrawScript 3D — ChatGPT & Claude Canvas Bridge",
-  "version": "2.0.0",
+  "name": "DrawScript 3D \u2014 ChatGPT & Claude Canvas Bridge",
+  "version": "3.0.0",
   "description": "Turn ChatGPT and Claude answers into animated, narrated 3D drawing lessons. One click to ask, automatic drawing, voice, themes and PNG export.",
   "permissions": [
     "storage",
@@ -12,7 +12,9 @@
     "https://chat.openai.com/*",
     "https://claude.ai/*",
     "https://inaamshabir.github.io/*",
-    "http://localhost:3000/*"
+    "http://localhost:3000/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.openai.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -40,7 +42,9 @@
       ],
       "js": [
         "prompt.js",
+        "library.js",
         "engine.js",
+        "player.js",
         "content.js"
       ],
       "css": [

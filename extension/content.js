@@ -25,16 +25,9 @@
     dockSide: "right",     // right | left
     appUrl: ""
   };
-  const THEMES = {
-    dark: { bg: "#030712", filter: "" },
-    chalkboard: { bg: "#17352b", filter: "" },
-    blueprint: { bg: "#0a3566", filter: "" },
-    paper: { bg: "#030712", filter: "invert(1) hue-rotate(180deg)" }
-  };
 
   let S = Object.assign({}, DEFAULTS);
-  let overlay = null, engine = null, dock = null;
-  let currentScript = "";
+  let player = null, dock = null;
   let waiting = false;          // an Ask was sent; draw when the reply finishes
   let lastDrawnSig = "";
   let primed = false;           // first scan done (existing replies are not auto-drawn)
@@ -63,19 +56,8 @@
   } catch (e) { /* storage unavailable */ }
 
   function applySettings() {
-    if (engine) applyEngineSettings();
-    if (overlay) applyOverlaySettings();
+    if (player) player.apply();
     if (dock) applyDockSettings();
-  }
-
-  function applyEngineSettings() {
-    const t = THEMES[S.theme] || THEMES.dark;
-    engine.ttsEnabled = !!S.ttsEnabled;
-    engine.speedMul = Number(S.speed) || 1;
-    engine.autoClear = Number(S.autoClear) || 0;
-    engine.voice = { name: S.voiceName, rate: Number(S.voiceRate) || 1, volume: Number(S.voiceVolume) };
-    engine.defaultBg = t.bg;
-    if (!engine.playing) { engine.bg = t.bg; engine.render(); }
   }
 
   // ---------- detection ----------
@@ -276,14 +258,6 @@
     return '<button type="button" class="ds3d-btn' + (cls ? " " + cls : "") + '" data-action="' + action + '" title="' + label + '" aria-label="' + label + '">' + (icon || "") + '<span>' + label + "</span></button>";
   }
 
-  function toast(msg) {
-    if (!overlay) return;
-    const t = overlay.querySelector(".ds3d-toast");
-    t.textContent = msg; t.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
-  }
-
   // ---------- dock ----------
   let statusEl = null, statusDot = null;
   function status(msg, kind) {
@@ -313,7 +287,7 @@
         '<div class="ds3d-toggles">' +
           '<label class="ds3d-chip"><input type="checkbox" data-opt="autoDraw"><span>Auto-draw</span></label>' +
           '<label class="ds3d-chip"><input type="checkbox" data-opt="ttsEnabled"><span>Voice</span></label>' +
-          '<button type="button" class="ds3d-chip" data-dock="settings">' + ICON.gear + '<span>More</span></button>' +
+          '<button type="button" class="ds3d-chip" data-dock="lab" title="Library of saved lessons, ask AI directly, settings">' + ICON.cube + '<span>Lab</span></button>' +
         '</div>' +
         '<div class="ds3d-status"><i class="ds3d-dot"></i><span>Ready</span></div>' +
       '</div>' +
@@ -343,7 +317,7 @@
       else if (a === "collapse") save({ dockCollapsed: true });
       else if (a === "expand") save({ dockCollapsed: false });
       else if (a === "side") save({ dockSide: S.dockSide === "right" ? "left" : "right" });
-      else if (a === "settings") send({ type: "OPEN_OPTIONS" });
+      else if (a === "lab") send({ type: "OPEN_LAB" });
     });
     dock.addEventListener("change", (e) => {
       const o = e.target.dataset && e.target.dataset.opt;
@@ -367,148 +341,26 @@
     try { chrome.runtime.sendMessage(msg); } catch (e) { /* extension reloaded */ }
   }
 
-  // ---------- overlay ----------
-  function ensureOverlay() {
-    if (overlay && document.body.contains(overlay)) return;
-    overlay = document.createElement("div");
-    overlay.className = "ds3d-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-label", "DrawScript 3D canvas");
-    overlay.innerHTML =
-      '<div class="ds3d-head">' +
-        '<span class="ds3d-logo">' + ICON.cube + '</span>' +
-        '<div class="ds3d-title">DrawScript 3D<small class="ds3d-sub">Drag to orbit · scroll or pinch to zoom</small></div>' +
-        '<div class="ds3d-head-actions">' +
-          btn("full", ICON.full, "Fullscreen", "ds3d-ico") +
-          btn("close", ICON.close, "Close", "ds3d-ico") +
-        '</div>' +
-      '</div>' +
-      '<div class="ds3d-stage"><canvas class="ds3d-canvas"></canvas><button type="button" class="ds3d-x" data-action="full" title="Exit fullscreen" aria-label="Exit fullscreen">' + ICON.close + '</button><div class="ds3d-toast"></div><div class="ds3d-bar"><i></i></div></div>' +
-      '<div class="ds3d-caption"></div>' +
-      '<div class="ds3d-tools">' +
-        btn("replay", ICON.replay, "Replay", "ds3d-pri") +
-        btn("stop", ICON.stop, "Stop") +
-        btn("reset", "", "Reset view") +
-        btn("voice", ICON.voice, "Voice") +
-        '<label class="ds3d-sel"><span>Speed</span><select data-opt="speed"><option value="0.5">0.5×</option><option value="1">1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="3">3×</option></select></label>' +
-        '<label class="ds3d-sel"><span>Theme</span><select data-opt="theme"><option value="dark">Dark</option><option value="chalkboard">Chalkboard</option><option value="blueprint">Blueprint</option><option value="paper">Paper</option></select></label>' +
-        btn("png", ICON.img, "Save PNG") +
-        btn("studio", ICON.ext, "Studio") +
-        btn("copy", ICON.copy, "Copy script") +
-      '</div>';
-    document.body.appendChild(overlay);
-
-    const canvas = overlay.querySelector(".ds3d-canvas");
-    const caption = overlay.querySelector(".ds3d-caption");
-    engine = new window.DrawScriptOverlayEngine(canvas, (msg) => { caption.textContent = msg; });
-    progressTick();
-    applyEngineSettings();
-
-    // pointer orbit + pinch zoom
-    const pts = new Map();
-    let pinch = 0;
-    canvas.addEventListener("pointerdown", (e) => { pts.set(e.pointerId, e); canvas.setPointerCapture(e.pointerId); pinch = 0; });
-    canvas.addEventListener("pointermove", (e) => {
-      if (!pts.has(e.pointerId)) return;
-      const prev = pts.get(e.pointerId);
-      pts.set(e.pointerId, e);
-      if (pts.size === 1) engine.orbit(e.clientX - prev.clientX, e.clientY - prev.clientY);
-      else if (pts.size === 2) {
-        const [a, b] = Array.from(pts.values());
-        const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-        if (pinch) engine.zoomBy(d / pinch);
-        pinch = d;
-      }
+  // ---------- player (overlay) ----------
+  function studioUrl() {
+    return (S.appUrl || "").trim() || "https://inaamshabir.github.io/drawScriptAI";
+  }
+  function ensurePlayer() {
+    if (player && document.body.contains(player.el)) return player;
+    player = window.DrawScriptPlayer.create({
+      get: () => S,
+      save: (o) => save(o),
+      studio: (script) => send({ type: "OPEN_DRAWSCRIPT_APP", script, source: location.hostname }),
+      studioUrl,
+      onClose: () => { document.documentElement.classList.remove("ds3d-lock"); }
     });
-    const up = (e) => { pts.delete(e.pointerId); pinch = 0; };
-    canvas.addEventListener("pointerup", up);
-    canvas.addEventListener("pointercancel", up);
-    canvas.addEventListener("dblclick", () => engine.resetCamera());
-    canvas.addEventListener("wheel", (e) => { e.preventDefault(); engine.zoomBy(Math.exp(-e.deltaY * 0.001)); }, { passive: false });
-
-    overlay.addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-action]");
-      if (!b) return;
-      const a = b.dataset.action;
-      if (a === "replay") { engine.resize(); engine.play(currentScript); }
-      else if (a === "stop") { engine.stop(); toast("Stopped"); }
-      else if (a === "reset") engine.resetCamera();
-      else if (a === "voice") { save({ ttsEnabled: !S.ttsEnabled }); if (!S.ttsEnabled) window.speechSynthesis && speechSynthesis.cancel(); toast(S.ttsEnabled ? "Voice on" : "Voice off"); }
-      else if (a === "png") savePng();
-      else if (a === "studio") send({ type: "OPEN_DRAWSCRIPT_APP", script: currentScript, source: location.hostname });
-      else if (a === "copy") copyText(currentScript).then(() => toast("Script copied"), () => toast("Copy blocked"));
-      else if (a === "full") { save({ overlayMode: S.overlayMode === "fullscreen" ? "floating" : "fullscreen" }); setTimeout(() => engine.resize(), 60); }
-      else if (a === "close") closeOverlay();
-    });
-    overlay.addEventListener("change", (e) => {
-      const o = e.target.dataset && e.target.dataset.opt;
-      if (o) save({ [o]: o === "speed" ? Number(e.target.value) : e.target.value });
-    });
-    window.addEventListener("resize", () => { if (overlay && overlay.classList.contains("open")) engine.resize(); });
-    applyOverlaySettings();
+    return player;
   }
-
-  function applyOverlaySettings() {
-    overlay.classList.toggle("fullscreen", S.overlayMode === "fullscreen");
-    overlay.classList.toggle("no-caption", !S.captions);
-    const t = THEMES[S.theme] || THEMES.dark;
-    overlay.querySelector(".ds3d-canvas").style.filter = t.filter;
-    overlay.dataset.theme = S.theme;
-    overlay.querySelectorAll("select[data-opt]").forEach((s) => { s.value = String(S[s.dataset.opt]); });
-    const v = overlay.querySelector('[data-action="voice"]');
-    v.innerHTML = (S.ttsEnabled ? ICON.voice : ICON.mute) + "<span>" + (S.ttsEnabled ? "Voice on" : "Voice off") + "</span>";
-    v.classList.toggle("off", !S.ttsEnabled);
-    const full = overlay.querySelector('[data-action="full"] span');
-    if (full) full.textContent = S.overlayMode === "fullscreen" ? "Windowed" : "Fullscreen";
-  }
-
-  function progressTick() {
-    const bar = overlay.querySelector(".ds3d-bar i");
-    const loop = () => {
-      if (!overlay || !document.body.contains(overlay)) return;
-      const total = engine.total || 0;
-      bar.style.width = total ? Math.min(100, (engine.done / total) * 100) + "%" : "0%";
-      requestAnimationFrame(loop);
-    };
-    loop();
-  }
-
-  function savePng() {
-    if (!engine) return;
-    try {
-      const src = engine.canvas;
-      const c = document.createElement("canvas");
-      c.width = src.width; c.height = src.height;
-      const ctx = c.getContext("2d");
-      const t = THEMES[S.theme] || THEMES.dark;
-      if (t.filter) ctx.filter = t.filter;
-      engine.render();
-      ctx.drawImage(src, 0, 0);
-      const a = document.createElement("a");
-      a.download = "drawscript-" + Date.now() + ".png";
-      a.href = c.toDataURL("image/png");
-      document.body.appendChild(a); a.click(); a.remove();
-      toast("Saved PNG");
-    } catch (e) { toast("Could not save PNG"); }
-  }
-
-  function closeOverlay() {
-    if (engine) engine.stop();
-    if (overlay) overlay.classList.remove("open");
-    document.documentElement.classList.remove("ds3d-lock");
-  }
-
+  function closeOverlay() { if (player) player.close(); }
   function openAndDraw(script) {
     if (!script) return;
-    currentScript = script;
-    ensureOverlay();
-    overlay.classList.add("open");
-    applySettings();
-    requestAnimationFrame(() => {
-      engine.resize();
-      applyEngineSettings();
-      engine.play(script);
-    });
+    ensurePlayer().open(script);
+    window.DrawScriptLibrary.add(script, { source: location.hostname });
     status("Drawing lesson…", "ok");
   }
 
@@ -586,7 +438,7 @@
   }
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && overlay && overlay.classList.contains("open")) { if (S.overlayMode === "fullscreen") { save({ overlayMode: "floating" }); setTimeout(() => engine.resize(), 60); } else closeOverlay(); return; }
+    if (e.key === "Escape" && player && player.isOpen()) { if (S.overlayMode === "fullscreen") { save({ overlayMode: "floating" }); setTimeout(() => player.engine.resize(), 60); } else closeOverlay(); return; }
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       const c = findComposer();
       if (c && composerText(c).indexOf("DrawScript 3D") !== -1) { waiting = true; status("Sent — waiting for the DrawScript reply…", "busy"); }

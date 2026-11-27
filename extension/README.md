@@ -17,6 +17,14 @@ Canvas controls: drag to orbit, scroll / pinch to zoom, double-click to reset, *
 Replay, stop, voice, speed (0.5×–3×), themes (Dark, Chalkboard, Blueprint, Paper), fullscreen,
 save as PNG, copy script and open in the full Studio are all in the panel.
 
+## New in v3
+* **Lesson player** – previous / play-pause / next, a step slider, and every `clear` starts a new step.
+* **Cleaner drawings** – labels that would overlap are moved apart automatically; screens auto-clear.
+* **Record video** (WebM, silent), save PNG, share link, copy script.
+* **Library** – every lesson you draw is saved; reopen it any time.
+* **DrawScript Lab** (dock → *Lab*, or the toolbar popup) – ask an AI directly with your own free
+  Gemini or OpenAI key, paste any script, or browse the library. No ChatGPT tab needed.
+
 ## Options
 Click the toolbar icon (or **More** on the dock): auto-draw, auto-send, captions, voice / rate / volume,
 speed, theme, window mode, dock side, subject, level, length, narration language, extra instructions
