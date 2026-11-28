@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DrawScript 3D \u2014 ChatGPT & Claude Canvas Bridge",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Turn ChatGPT and Claude answers into animated, narrated 3D drawing lessons. One click to ask, automatic drawing, voice, themes and PNG export.",
   "permissions": [
     "storage",

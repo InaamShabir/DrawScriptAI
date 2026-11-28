@@ -11,9 +11,9 @@
     advanced: "Audience: advanced. Include formal notation and edge cases."
   };
   const LENGTHS = {
-    short: "Keep the lesson short: about 8-12 commands.",
-    medium: "Keep the lesson medium length: about 14-22 commands.",
-    detailed: "Make the lesson detailed: about 25-40 commands, built step by step."
+    short: "Keep the lesson short: 4 to 5 screens.",
+    medium: "Make the lesson 6 to 8 screens.",
+    detailed: "Make the lesson detailed: 9 to 12 screens, built step by step, with a worked check at the end."
   };
   const SUBJECTS = {
     any: "",
@@ -37,5 +37,5 @@
     return DS_BASE_PROMPT + tail + "\n\nStudent Question: " + q;
   }
 
-  global.DrawScriptPrompt = { build, BASE: DS_BASE_PROMPT, MARKER: "You are a visual educator inside DrawScript 3D" };
+  global.DrawScriptPrompt = { build, BASE: DS_BASE_PROMPT, MARKER: "teacher inside DrawScript 3D" };
 })(window);

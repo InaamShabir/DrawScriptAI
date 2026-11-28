@@ -7,8 +7,22 @@ export interface LessonPreset {
   script: string;
 }
 
-export const DEFAULT_SYSTEM_PROMPT = `You are a visual educator inside DrawScript 3D.
-Explain the user's question with brief, friendly spoken narration interleaved with DrawScript drawing commands wrapped strictly in \\( ... \\).
+export const DEFAULT_SYSTEM_PROMPT = `You are a brilliant, warm teacher inside DrawScript 3D. Your job is to make the student truly UNDERSTAND, not just see the answer. Your whole reply is a narrated, animated lesson: spoken sentences interleaved with drawing commands, each command wrapped strictly in \\( ... \\).
+
+HOW TO TEACH (follow this every time):
+1. Hook: restate the question in one friendly sentence and draw the situation with every given value labelled.
+2. Big idea: name the one or two principles that solve it, in plain words. An everyday analogy helps.
+3. Step by step: ONE idea per screen. For each step say what we are doing and WHY, then draw it. Reveal equations one line at a time, with real numbers.
+4. Show motion: when something moves, changes or flows, animate it (name the object, then move / fade / recolor / pulse it). Never describe motion in words only.
+5. Check: for multiple-choice questions, say why each wrong option is wrong.
+6. Takeaway: finish with a one-line shortcut and the most common trap.
+Use 6 to 10 screens. Be encouraging and conversational ("Notice that...", "Here is the key trick...").
+
+NARRATION RULES:
+- 2 to 4 short sentences per screen, written to be spoken aloud. Explain the reason behind every step.
+- Refer to what is visible ("look at the orange block").
+- In narration write words, not symbols ("mass times g times height"); keep symbols and numbers in the drawings.
+- After \\(clear\\) and \\(title\\), alternate: one sentence, then the drawing it talks about.
 
 COORDINATE SYSTEM:
 - Virtual 3D drafting canvas centered at x=400, y=300, z=0.
@@ -50,16 +64,46 @@ AVAILABLE COMMANDS (wrap each inside \\( and \\)):
 - \\(camera iso | front | yaw=30 pitch=20 zoom=1.5 duration=1\\)  (animated camera move)
 - \\(background #0f172a\\)
 - \\(wait 0.6\\)
+- \\(clear\\)  (wipe the screen; start every new idea with it)
+- \\(title "Short screen title" [color]\\)  (centered heading, use on every screen)
+- \\(incline x y width height color [flip]\\)  (right-triangle slope with angle label; x,y is the bottom-left corner)
+- \\(ground x y length color [rough]\\)  (floor line with hatching; add rough for friction surfaces)
+- \\(block cx cy size "label" color\\)  (labelled box centred on cx cy)
 
-RULES:
+MOTION AND EMPHASIS (what makes lessons come alive):
+- Add name=thing to ANY drawing command, e.g. \\(circle 160 234 14 orange fill=rgba(249,115,22,0.9) name=ball\\). Several commands may share one name.
+- \\(move ball dx dy duration=2.5\\)  slides everything named ball by (dx, dy)
+- \\(fade ball duration=1\\)  fades it out;  \\(fade ball to=0.3\\) dims it
+- \\(recolor ball red\\)   \\(pulse ball\\)  (blink to draw attention)   \\(remove ball\\)
+
+DRAWING RULES:
 1. Put your ENTIRE reply inside ONE fenced code block labeled \`\`\`drawscript so the DrawScript Chrome Extension can read and render it. Write nothing outside that block.
-2. Inside the block, write narration sentences and drawing commands. Put every command on its own line, wrapped in its own \\( ... \\). Never put several commands inside one \\( ... \\).
-3. Never use $ or $$ and never use Markdown formatting inside the block.
-4. Always quote multi-word text strings in text commands: \\(text 400 90 "Pythagorean Theorem" cyan\\).
-5. Narrate one concept at a time, then immediately draw the matching geometry.
-6. Keep coordinates well-spaced so labels never overlap.
-7. Start every new idea with \\(clear\\) on its own line so each screen shows only one idea (at most 8 shapes and labels). Never draw labels on top of each other.
-8. Prefer plot, axes2d, pie, bars, angle and dimension over hand-built lines when teaching graphs, statistics or geometry.`;
+2. Inside the block, write narration sentences and drawing commands. Put every command on its own line, wrapped in its own \\( ... \\). Never put several commands inside one \\( ... \\). Do not use $ and no Markdown formatting inside the block.
+3. Every screen starts with \\(clear\\) then \\(title "..."\\). Keep at most 10 shapes and labels per screen.
+4. Make diagrams LARGE and centred: fill most of x 100-700, y 150-500. Blocks, balls and points should be at least 24 units wide; text at least 16px.
+5. Never let labels overlap. Quote every text string: \\(text 400 300 "KE = 100 J" yellow font="22px sans-serif" align=center\\). Use y 150-500 for content; y 108 belongs to the title.
+6. Use a consistent colour code through the lesson (for example orange = the object, blue = surfaces, yellow = energy, red = losses, green = final answer).
+7. Arguments are strictly positional, then key=value. Examples: \\(dimension x1 y1 x2 y2 "5 m" offset=-30 yellow\\)  \\(arrow x1 y1 z1 x2 y2 z2 color width=4\\)  \\(line x1 y1 x2 y2 color width=3\\).
+8. Prefer incline, ground, block, plot, axes2d, pie, bars, angle and dimension over hand-built shapes.
+
+EXAMPLE OF THE STYLE (a different topic, shortened):
+\`\`\`drawscript
+\\(clear\\)
+\\(title "A Falling Ball Trades Height for Speed"\\)
+Let us find out why a dropped ball speeds up. We will follow its energy.
+\\(ground 250 470 300 #94a3b8\\)
+\\(circle 400 190 22 #f59e0b fill=rgba(245,158,11,0.9) name=ball\\)
+\\(dimension 340 190 340 470 "h = 5 m" offset=-30 #facc15\\)
+At the top the ball is still, so all its energy is stored height energy. Think of it as money in a bank.
+\\(text 560 220 "At the top: PE = mgh" #facc15 font="20px sans-serif" align=center\\)
+\\(pulse ball\\)
+As it falls, the bank slowly pays out as speed. Watch the ball and the energy bars.
+\\(rect 520 260 60 180 #facc15 fill=rgba(250,204,21,0.5) name=pe\\)
+\\(move ball 0 258 duration=2\\)
+\\(fade pe duration=1.2\\)
+\\(rect 620 260 60 180 #4ade80 fill=rgba(74,222,128,0.5)\\)
+The same amount of energy is now movement energy. Nothing was lost, it only changed form.
+\`\`\``;
 
 export const LESSON_PRESETS: LessonPreset[] = [
   {
@@ -215,6 +259,138 @@ First as a pie chart, where each slice is its share of the total.
 Now the same numbers as a bar chart, where height shows the amount.
 \\(bars 440 410 50 240 40 25 20 15 #ffffff width=2\\)
 \\(numberline 120 500 560 0 100 step=10 #64748b\\)`,
+  },
+  {
+    id: 'neet-energy-friction',
+    title: 'NEET: Work, Energy & Friction on Slopes',
+    subject: 'Physics',
+    description: 'A full teacher-style lesson: a block slides down a smooth slope, crosses a rough floor and climbs again. Uses named objects, motion, an energy ledger and an option check.',
+    script: `\\(clear\\)
+\\(title "The Journey of the Block"\\)
+Here is a classic NEET problem. A 2 kilogram block slides down a smooth slope that is 5 metres high, crosses a rough floor 10 metres long, and then climbs a second smooth slope.
+\\(incline 130 400 220 170 #38bdf8\\)
+\\(ground 350 400 180 #f97316 rough\\)
+\\(incline 530 400 150 140 #38bdf8 flip\\)
+\\(circle 158 234 14 #f59e0b fill=rgba(245,158,11,0.9) name=blk\\)
+\\(text 158 204 "2 kg" #fbbf24 font="16px sans-serif" align=center name=blk\\)
+We want to know how high it gets. First, let us picture the whole journey.
+\\(dimension 108 230 108 400 "5 m" offset=-32 #facc15\\)
+\\(text 195 372 "smooth" #7dd3fc font="16px sans-serif" align=center\\)
+\\(text 440 440 "rough floor, μ = 0.2, 10 m" #fb923c font="16px sans-serif" align=center\\)
+\\(text 628 385 "smooth" #7dd3fc font="16px sans-serif" align=center\\)
+\\(pulse blk\\)
+\\(clear\\)
+\\(title "Two Rules of the Game"\\)
+Before any calculation, remember just two rules. On a smooth surface nothing steals energy, so it only changes form, from stored height energy to movement energy and back.
+\\(rect 120 170 260 230 #22c55e fill=rgba(34,197,94,0.10) width=3\\)
+\\(text 250 210 "SMOOTH" #4ade80 font="24px sans-serif" align=center\\)
+\\(text 250 260 "No energy lost" white font="19px sans-serif" align=center\\)
+\\(text 250 300 "PE ⇄ KE" #facc15 font="28px sans-serif" align=center\\)
+\\(text 250 350 "energy just changes form" #94a3b8 font="15px sans-serif" align=center\\)
+On a rough surface, friction steals some energy and turns it into heat. The whole problem is bookkeeping: how much energy do we start with, and how much does friction take away?
+\\(rect 420 170 260 230 #f97316 fill=rgba(249,115,22,0.10) width=3\\)
+\\(text 550 210 "ROUGH" #fb923c font="24px sans-serif" align=center\\)
+\\(text 550 260 "Friction takes energy" white font="19px sans-serif" align=center\\)
+\\(text 550 300 "W = − f × d" #f87171 font="28px sans-serif" align=center\\)
+\\(text 550 350 "energy leaves as heat" #94a3b8 font="15px sans-serif" align=center\\)
+\\(clear\\)
+\\(title "Start: all energy is height energy"\\)
+Step one: how much energy do we start with? The block is at rest at the top, so it has no movement energy.
+\\(incline 130 400 220 170 #38bdf8\\)
+\\(circle 158 234 14 #f59e0b fill=rgba(245,158,11,0.9) name=blk\\)
+\\(dimension 108 230 108 400 "h = 5 m" offset=-40 #facc15\\)
+\\(text 560 200 "At the top" #94a3b8 font="17px sans-serif" align=center\\)
+All of its energy is stored as height energy, which is mass times g times height. That is 2 times 10 times 5, which gives 100 joules.
+\\(text 560 240 "v = 0, so KE = 0" white font="20px sans-serif" align=center\\)
+\\(text 560 290 "PE = m g h" #facc15 font="22px sans-serif" align=center\\)
+\\(text 560 330 "= 2 × 10 × 5" white font="22px sans-serif" align=center\\)
+\\(text 560 380 "= 100 J" #4ade80 font="30px sans-serif" align=center\\)
+\\(pulse blk\\)
+\\(clear\\)
+\\(title "Smooth slope: 100 J just changes form"\\)
+Now let it go. The first slope is smooth, so nothing is lost on the way down.
+\\(incline 130 400 220 170 #38bdf8\\)
+\\(circle 158 234 14 #f59e0b fill=rgba(245,158,11,0.9) name=blk\\)
+\\(move blk 192 152 duration=2.6\\)
+\\(rect 470 190 70 200 #334155 fill=rgba(51,65,85,0.3) width=2\\)
+\\(rect 470 190 70 200 #facc15 fill=rgba(250,204,21,0.55) width=2 name=pe\\)
+The height energy turns into movement energy, and at the bottom the block still holds exactly 100 joules, all of it now movement energy.
+\\(text 505 175 "PE 100 J" #facc15 font="16px sans-serif" align=center\\)
+\\(wait 0.4\\)
+\\(fade pe duration=1.2\\)
+\\(rect 580 190 70 200 #4ade80 fill=rgba(74,222,128,0.55) width=2\\)
+\\(text 615 175 "KE 100 J" #4ade80 font="16px sans-serif" align=center\\)
+\\(text 560 430 "Nothing lost on a smooth slope" #94a3b8 font="16px sans-serif" align=center\\)
+\\(clear\\)
+\\(title "Rough floor: friction acts backwards"\\)
+Here comes the important part. On the rough floor, friction pushes backwards the whole time the block moves forward, so it does negative work. First find the friction force.
+\\(ground 150 340 500 #f97316 rough\\)
+\\(circle 230 326 14 #f59e0b fill=rgba(245,158,11,0.9) name=blk\\)
+\\(arrow 230 326 0 330 326 0 #38bdf8 width=4 name=blk\\)
+\\(text 330 310 "motion" #7dd3fc font="15px sans-serif" align=center name=blk\\)
+\\(arrow 216 326 0 156 326 0 #ef4444 width=4 name=blk\\)
+The floor pushes up with the normal force, which equals the weight, mg, so 20 newtons. Friction is mu times that, which is 0.2 times 20, so 4 newtons.
+\\(text 150 300 "friction f" #f87171 font="15px sans-serif" align=center name=blk\\)
+\\(move blk 360 0 duration=3\\)
+\\(dimension 230 378 590 378 "10 m" offset=0 #facc15\\)
+\\(text 400 420 "N = mg = 2 × 10 = 20 N" white font="21px sans-serif" align=center\\)
+\\(text 400 460 "f = μN = 0.2 × 20 = 4 N" #fb923c font="23px sans-serif" align=center\\)
+\\(clear\\)
+\\(title "How much energy did friction take?"\\)
+Work done by friction is the force times the distance, but with a minus sign, because friction points opposite to the motion. So work is minus 4 times 10, which is minus 40 joules.
+\\(text 400 200 "W = − f × d" #94a3b8 font="26px sans-serif" align=center\\)
+\\(text 400 260 "W = − 4 × 10" white font="30px sans-serif" align=center\\)
+Friction has just removed 40 joules of energy, and it will never give it back.
+\\(text 400 335 "W = − 40 J" #f87171 font="40px sans-serif" align=center\\)
+\\(text 400 410 "40 J leaves as heat" #94a3b8 font="18px sans-serif" align=center\\)
+\\(clear\\)
+\\(title "The Energy Ledger"\\)
+Let us put the energy on a ledger. At the top there was 100 joules. At the bottom of the first slope, still 100.
+\\(line 120 440 690 440 #64748b width=2\\)
+\\(rect 150 240 70 200 #facc15 fill=rgba(250,204,21,0.55) width=2\\)
+\\(text 185 225 "100 J" #facc15 font="18px sans-serif" align=center\\)
+\\(text 185 465 "Top" white font="16px sans-serif" align=center\\)
+\\(rect 270 240 70 200 #4ade80 fill=rgba(74,222,128,0.55) width=2\\)
+\\(text 305 225 "100 J" #4ade80 font="18px sans-serif" align=center\\)
+After the rough patch we have 100 minus 40, which is 60 joules left. And 60 joules is exactly what will be available to climb the second slope.
+\\(text 305 465 "Bottom" white font="16px sans-serif" align=center\\)
+\\(rect 390 320 70 120 #4ade80 fill=rgba(74,222,128,0.55) width=2\\)
+\\(rect 390 240 70 80 #ef4444 fill=rgba(239,68,68,0.45) width=2 dash=5,4\\)
+\\(text 425 225 "60 J left" #4ade80 font="18px sans-serif" align=center\\)
+\\(text 425 465 "After rough" white font="16px sans-serif" align=center\\)
+\\(text 560 280 "− 40 J" #f87171 font="22px sans-serif" align=center\\)
+\\(text 560 310 "lost as heat" #f87171 font="15px sans-serif" align=center\\)
+\\(clear\\)
+\\(title "Second slope: climb until KE = 0"\\)
+Finally the block reaches the second smooth slope. It climbs until it stops for a moment, and at that highest point all of its remaining 60 joules has turned back into height energy.
+\\(incline 530 400 150 140 #38bdf8 flip\\)
+\\(ground 120 400 410 #f97316 rough\\)
+\\(circle 520 386 14 #f59e0b fill=rgba(245,158,11,0.9) name=blk\\)
+\\(text 520 356 "60 J" #4ade80 font="16px sans-serif" align=center name=blk\\)
+\\(move blk 109 -102 duration=2.6\\)
+So 60 equals m g h, which is 2 times 10 times h, and h equals 60 divided by 20, which is 3 metres.
+\\(line 628 284 706 284 #facc15 dash=5,4 width=2\\)
+\\(dimension 706 400 706 284 "h" offset=22 #facc15\\)
+\\(text 260 250 "60 = m g h" white font="24px sans-serif" align=center\\)
+\\(text 260 300 "60 = 2 × 10 × h" white font="24px sans-serif" align=center\\)
+\\(text 260 360 "h = 3 m" #4ade80 font="34px sans-serif" align=center\\)
+\\(clear\\)
+\\(title "Check the options"\\)
+Let us check the options. Five metres would mean no energy was lost at all. Four metres would mean friction took only 20 joules.
+\\(text 400 175 "(A) 2 m   ✗  friction would have to take 80 J" #f87171 font="18px sans-serif" align=center\\)
+\\(text 400 230 "(B) 3 m   ✓  100 − 40 = 60 J → h = 3 m" #4ade80 font="22px sans-serif" align=center\\)
+Two metres would mean it took 80 joules. Only 3 metres matches the 40 joules that friction actually removed. So the answer is option B.
+\\(text 400 285 "(C) 4 m   ✗  friction would take only 20 J" #f87171 font="18px sans-serif" align=center\\)
+\\(text 400 340 "(D) 5 m   ✗  that means no friction at all" #f87171 font="18px sans-serif" align=center\\)
+\\(rect 120 205 560 42 #4ade80 fill=rgba(74,222,128,0.12) width=2\\)
+\\(clear\\)
+\\(title "Exam shortcut: mass cancels!"\\)
+Here is a shortcut worth remembering for exam day. Write one line: starting height energy, minus the work friction removes, equals final height energy. The mass appears in every term, so it cancels out.
+\\(text 400 200 "m g h₁ − μ m g d = m g h₂" #facc15 font="28px sans-serif" align=center\\)
+\\(text 400 265 "h₂ = h₁ − μ d" white font="30px sans-serif" align=center\\)
+Five minus 0.2 times 10 equals 3. Notice we never needed the 2 kilograms.
+\\(text 400 330 "h₂ = 5 − 0.2 × 10 = 3 m" #4ade80 font="30px sans-serif" align=center\\)
+\\(text 400 410 "Trap: do not forget friction only acts on the rough part" #fb923c font="16px sans-serif" align=center\\)`,
   },
 ];
 

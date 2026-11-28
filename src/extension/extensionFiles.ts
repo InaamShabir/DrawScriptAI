@@ -17,6 +17,7 @@ const DESCRIPTIONS: Record<string, string> = {
   'player.js': 'Lesson player: step controls, pause, seek, speed, themes, PNG, video recording and sharing.',
   'library.js': 'Saves every lesson you draw so you can reopen it later.',
   'lab.html': 'DrawScript Lab page: ask an AI directly, paste a script, browse saved lessons.',
+  'sample.js': 'A complete example lesson (NEET energy problem) used by the Lab.',
   'lab.css': 'Styles for the Lab page.',
   'lab.js': 'Lab logic: Gemini / OpenAI calls with your own key, paste-and-draw and the library.',
   'popup.html': 'Popup and options page markup.',
@@ -29,7 +30,7 @@ const DESCRIPTIONS: Record<string, string> = {
 
 const ORDER = [
   'manifest.json', 'content.js', 'engine.js', 'player.js', 'library.js', 'prompt.js', 'styles.css',
-  'lab.html', 'lab.js', 'lab.css',
+  'lab.html', 'lab.js', 'lab.css', 'sample.js',
   'popup.html', 'popup.js', 'popup.css', 'background.js', 'bridge.js', 'README.md',
 ];
 

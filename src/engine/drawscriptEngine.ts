@@ -190,6 +190,13 @@ function tokenize(command: string): string[] {
   return tokens;
 }
 
+function leadingNumbers(args: string[]): { nums: number[]; rest: string[] } {
+  const nums: number[] = [];
+  let i = 0;
+  while (i < args.length && isNumberToken(args[i])) nums.push(toNum(args[i++], 0));
+  return { nums, rest: args.slice(i) };
+}
+
 function parseCommand(raw: string): { name: string; args: string[] } | null {
   const tokens = tokenize(raw);
   if (!tokens.length) return null;
@@ -408,6 +415,10 @@ export function extractDrawScriptFromResponse(rawText: string): {
 interface SceneObject {
   type: string;
   progress: number;
+  /** Name given with name=... so move / fade / recolor / remove can find the object. */
+  tag?: string;
+  /** Translation applied while drawing (animated by `move`). */
+  offset?: Point3;
   points?: Point3[];
   samples?: Point3[];
   center?: Point3;
@@ -765,7 +776,11 @@ export class DrawScriptEngine {
     return { x: x3, y: y3, z: z2 };
   }
 
+  private currentOffset: Point3 | null = null;
+
   private project(p: Point3): { x: number; y: number; depth: number } {
+    const off = this.currentOffset;
+    if (off) p = point3(p.x + off.x, p.y + off.y, (p.z || 0) + off.z);
     const c = this.worldToCamera(p);
     return {
       x: this.width / 2 + c.x * this.camera.zoom,
@@ -813,8 +828,10 @@ export class DrawScriptEngine {
 
     const sorted = this.scene.slice().sort((a, b) => this.objectDepth(a) - this.objectDepth(b));
     for (const obj of sorted) {
+      this.currentOffset = obj.offset ?? null;
       this.renderObject(obj);
     }
+    this.currentOffset = null;
     this.resetStyle();
   }
 
@@ -1352,7 +1369,120 @@ export class DrawScriptEngine {
     return { geometry, styles: args.slice(index) };
   }
 
+  /** Runs one command. name=thing tags what it draws; move/fade/recolor/remove/pulse act on tagged objects. */
   public async executeCommand(command: string) {
+    const toks = tokenize(command);
+    if (!toks.length) return;
+    const head = toks[0].toLowerCase();
+    if (['move', 'fade', 'recolor', 'remove', 'pulse'].includes(head)) {
+      await this.runAction(head, toks.slice(1));
+      return;
+    }
+    const nameTok = toks.find((t) => /^name=/i.test(t));
+    if (!nameTok) {
+      await this.executeCore(command);
+      return;
+    }
+    const tag = nameTok.slice(5).replace(/^["']|["']$/g, '');
+    const before = this.scene.length;
+    const rest = toks
+      .filter((t) => t !== nameTok)
+      .map((t) => (/\s/.test(t) && !/^["']/.test(t) ? `"${t}"` : t))
+      .join(' ');
+    await this.executeCore(rest);
+    for (const o of this.scene.slice(before)) o.tag = tag;
+  }
+
+  private tween(seconds: number, apply: (t: number) => void): Promise<void> {
+    if (this.instantMode) {
+      apply(1);
+      this.renderScene();
+      return Promise.resolve();
+    }
+    const ms = Math.max(20, (seconds * 1000) / this.speedMultiplier);
+    const start = performance.now();
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+    return new Promise((resolve) => {
+      const frame = (now: number) => {
+        if (this.stopped) {
+          apply(1);
+          this.renderScene();
+          resolve();
+          return;
+        }
+        const raw = clamp((now - start) / ms, 0, 1);
+        apply(ease(raw));
+        this.renderScene();
+        if (raw < 1) requestAnimationFrame(frame);
+        else resolve();
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  private async runAction(action: string, args: string[]) {
+    const tag = String(args[0] ?? '').replace(/^["']|["']$/g, '');
+    const targets = this.scene.filter((o) => o.tag === tag);
+    if (!targets.length) return;
+    const rest = args.slice(1);
+    const nums: number[] = [];
+    let i = 0;
+    while (i < rest.length && /^[-+]?(?:\d+\.?\d*|\.\d+)$/.test(rest[i])) nums.push(toNum(rest[i++], 0));
+    const kv: Record<string, string> = {};
+    let colorArg: string | null = null;
+    for (const t of rest.slice(i)) {
+      const m = /^([a-z]+)=(.*)$/i.exec(t);
+      if (m) kv[m[1].toLowerCase()] = m[2];
+      else if (/^#[0-9a-f]{3,8}$/i.test(t) || /^[a-z]+$/i.test(t)) colorArg = t;
+    }
+    const dur = parseFloat(kv.duration) || (action === 'move' ? 1.6 : 0.6);
+    const setAlpha = (o: SceneObject, a: number) => {
+      o.opacity = a;
+      if (o.style) o.style = { ...o.style, opacity: a };
+    };
+    const getAlpha = (o: SceneObject) => (o.style ? o.style.opacity : (o.opacity ?? 1));
+
+    if (action === 'remove') {
+      this.scene = this.scene.filter((o) => o.tag !== tag);
+      this.renderScene();
+      return;
+    }
+    if (action === 'recolor') {
+      for (const o of targets) {
+        if (o.style && colorArg) o.style = { ...o.style, color: colorArg, glowColor: colorArg };
+        if (o.type === 'text' && colorArg) o.color = colorArg;
+      }
+      this.renderScene();
+      return;
+    }
+    if (action === 'move') {
+      const d = { x: nums[0] ?? 0, y: nums[1] ?? 0, z: nums[2] ?? 0 };
+      const from = targets.map((o) => ({ x: o.offset?.x ?? 0, y: o.offset?.y ?? 0, z: o.offset?.z ?? 0 }));
+      await this.tween(dur, (t) =>
+        targets.forEach((o, k) => {
+          o.offset = point3(from[k].x + d.x * t, from[k].y + d.y * t, from[k].z + d.z * t);
+        })
+      );
+      return;
+    }
+    if (action === 'fade') {
+      const to = kv.to !== undefined ? clamp(parseFloat(kv.to), 0, 1) : 0;
+      const from = targets.map(getAlpha);
+      await this.tween(dur, (t) => targets.forEach((o, k) => setAlpha(o, from[k] + (to - from[k]) * t)));
+      if (to === 0) this.scene = this.scene.filter((o) => o.tag !== tag);
+      return;
+    }
+    if (action === 'pulse') {
+      const from = targets.map(getAlpha);
+      await this.tween(dur, (t) =>
+        targets.forEach((o, k) => setAlpha(o, from[k] * (0.25 + 0.75 * Math.abs(Math.cos(t * Math.PI * 3)))))
+      );
+      targets.forEach((o, k) => setAlpha(o, from[k]));
+      this.renderScene();
+    }
+  }
+
+  private async executeCore(command: string) {
     const parsed = parseCommand(command);
     if (!parsed) return;
     const args = parsed.args;
@@ -2474,6 +2604,64 @@ export class DrawScriptEngine {
         }
         const seconds = parseDuration(optStr(args, ['duration']), 0.9);
         await this.animateCamera(to, seconds);
+        break;
+      }
+
+      case 'title': {
+        const text = stripQuotes(args[0] ?? '');
+        const color = args.slice(1).find((t) => isColor(t)) ?? '#22d3ee';
+        await this.executeCommand(`text 400 108 "${text}" ${color} font="26px sans-serif" align=center`);
+        break;
+      }
+
+      case 'block': {
+        // block cx cy size "label" color - a labelled box centred on (cx, cy)
+        const lead = leadingNumbers(args);
+        const [cx, cy, size = 50] = lead.nums;
+        const label = lead.rest.find((t) => /^["']/.test(t));
+        const color = lead.rest.find((t) => isColor(t)) ?? '#f59e0b';
+        await this.executeCommand(
+          `rect ${cx - size / 2} ${cy - size / 2} ${size} ${size} ${color} fill=rgba(245,158,11,0.35) width=3`
+        );
+        if (label) {
+          const px = Math.max(13, Math.round(size / 3.2));
+          await this.executeCommand(`text ${cx} ${cy + 6} ${label} white font="${px}px sans-serif" align=center`);
+        }
+        break;
+      }
+
+      case 'ground': {
+        // ground x y length [color] [rough] - a floor line with hatching underneath
+        const lead = leadingNumbers(args);
+        const [x, y, len = 300] = lead.nums;
+        const color = lead.rest.find((t) => isColor(t)) ?? '#94a3b8';
+        const rough = lead.rest.some((t) => /^rough$/i.test(t));
+        await this.executeCommand(`line ${x} ${y} ${x + len} ${y} ${color} width=4`);
+        const n = Math.floor(len / 18);
+        for (let k = 0; k < n; k++) {
+          const hx = x + 6 + k * 18;
+          await this.executeCommand(
+            `line ${hx} ${y + 1} ${hx - 12} ${y + 14} ${color} width=${rough ? 3 : 1.5} opacity=${rough ? 0.9 : 0.5} 6x`
+          );
+        }
+        break;
+      }
+
+      case 'incline': {
+        // incline x y width height [color] [flip] - right angle at bottom-left (bottom-right when flipped)
+        const lead = leadingNumbers(args);
+        const [x, y, w, h] = lead.nums;
+        const color = lead.rest.find((t) => isColor(t)) ?? '#38bdf8';
+        const flip = lead.rest.some((t) => /^flip$/i.test(t));
+        const A = flip ? [x + w, y - h] : [x, y - h];
+        const B = flip ? [x, y] : [x + w, y];
+        const R = flip ? [x + w, y] : [x, y];
+        await this.executeCommand(
+          `polygon ${A.join(' ')} ${B.join(' ')} ${R.join(' ')} ${color} fill=rgba(56,189,248,0.12) width=4`
+        );
+        const deg = Math.round((Math.atan2(h, w) * 180) / Math.PI);
+        if (flip) await this.executeCommand(`angle ${B[0]} ${B[1]} 34 ${180 - deg} 180 "${deg}°" ${color}`);
+        else await this.executeCommand(`angle ${B[0]} ${B[1]} 34 180 ${180 + deg} "${deg}°" ${color}`);
         break;
       }
 

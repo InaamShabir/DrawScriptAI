@@ -63,7 +63,7 @@
   // ---------- detection ----------
   function hasDraw(text) {
     if (!text) return false;
-    return /\\\(\s*(?:point|dot|line|arrow|doublearrow|circle|ellipse|arc|rect|rectangle|roundrect|triangle|polygon|polyline|quadratic|bezier|cubic|cylinder|cone|text|label|highlight|cross|bracket|grid|axes|axes2d|plot|function|pie|bars|angle|dimension|numberline|sphere|cube|box|pyramid|helix|spiral|star|ngon|regular|pentagon|hexagon|heptagon|octagon|camera|background|image|clear|wait)\b/i.test(repair(text));
+    return /\\\(\s*(?:point|dot|line|arrow|doublearrow|circle|ellipse|arc|rect|rectangle|roundrect|triangle|polygon|polyline|quadratic|bezier|cubic|cylinder|cone|text|label|highlight|cross|bracket|grid|axes|axes2d|plot|function|pie|bars|angle|dimension|numberline|sphere|cube|box|pyramid|helix|spiral|star|ngon|regular|pentagon|hexagon|heptagon|octagon|camera|background|image|clear|wait|title|incline|ground|block|move|fade|recolor|pulse)\b/i.test(repair(text));
   }
 
   function extractText(root) {

@@ -122,6 +122,7 @@
     } finally { $("go").disabled = false; }
   }
   $("go").onclick = generate;
+  $("sample").onclick = () => show(window.DrawScriptSample.script);
   $("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) generate(); });
   SAMPLES.forEach((s) => { const b = document.createElement("button"); b.textContent = s; b.onclick = () => { $("q").value = s; }; $("samples").appendChild(b); });
 

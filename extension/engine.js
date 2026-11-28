@@ -620,6 +620,8 @@
     }
 
     project(p) {
+      const off = this.off;
+      if (off) p = { x: p.x + off.x, y: p.y + off.y, z: (p.z || 0) + off.z };
       const c = this.worldToCamera(p);
       return { x: this.width / 2 + c.x * this.camera.zoom, y: this.height / 2 + c.y * this.camera.zoom, depth: c.z };
     }
@@ -668,7 +670,8 @@
       this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       this.ctx.fillStyle = this.bg;
       this.ctx.fillRect(0, 0, this.width, this.height);
-      for (const obj of this.scene) this.renderObj(obj);
+      for (const obj of this.scene) { this.off = obj.offset || null; this.renderObj(obj); }
+      this.off = null;
       this.resetStyle();
     }
 
@@ -1273,7 +1276,90 @@
       }
     }
 
+    // Every command may carry name=thing so later move / fade / recolor / remove can find it.
     async exec(cmdStr) {
+      const toks = tokenize(cmdStr);
+      const nt = toks.find((t) => /^name=/i.test(String(t)));
+      if (!toks.length) return;
+      const head = String(toks[0]).toLowerCase();
+      if (head === "move" || head === "fade" || head === "recolor" || head === "remove" || head === "pulse") {
+        return this.execAction(head, toks.slice(1));
+      }
+      if (!nt) return this.execCore(cmdStr);
+      const tag = String(nt).slice(5).replace(/^["']|["']$/g, "");
+      const before = this.scene.length;
+      await this.execCore(toks.filter((t) => t !== nt).map((t) => (/\s/.test(String(t)) && !/^["']/.test(String(t)) ? '"' + t + '"' : t)).join(" "));
+      for (const o of this.scene.slice(before)) o.tag = tag;
+    }
+
+    tween(sec, apply) {
+      const rid = this.runId;
+      if (this.instant) { apply(1); this.render(); return Promise.resolve(); }
+      const ms = Math.max(20, (sec * 1000) / (this.speedMul || 1));
+      let start = performance.now(), last = start;
+      const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+      return new Promise((resolve) => {
+        const frame = (now) => {
+          if (this.stopped || rid !== this.runId) { apply(1); this.render(); resolve(); return; }
+          if (this.paused) { start += now - last; last = now; requestAnimationFrame(frame); return; }
+          last = now;
+          const raw = clamp((now - start) / ms, 0, 1);
+          apply(ease(raw)); this.render();
+          if (raw < 1) requestAnimationFrame(frame); else resolve();
+        };
+        requestAnimationFrame(frame);
+      });
+    }
+
+    // move NAME dx dy [dz] [duration=2] | fade NAME [to=0] | recolor NAME color | remove NAME | pulse NAME
+    async execAction(action, args) {
+      const tag = String(args[0] || "").replace(/^["']|["']$/g, "");
+      const targets = this.scene.filter((o) => o.tag === tag);
+      if (!targets.length) return;
+      const rest = args.slice(1);
+      const nums = [];
+      let i = 0;
+      while (i < rest.length && isNumberToken(rest[i])) { nums.push(toNum(rest[i])); i++; }
+      const kv = {};
+      let colorArg = null;
+      for (const t of rest.slice(i)) {
+        const m = /^([a-z]+)=(.*)$/i.exec(String(t));
+        if (m) kv[m[1].toLowerCase()] = m[2];
+        else if (isColor(t)) colorArg = t;
+      }
+      const dur = parseFloat(kv.duration) || (action === "move" ? 1.6 : 0.6);
+      const setAlpha = (o, a) => { o.opacity = a; if (o.style) o.style = Object.assign({}, o.style, { opacity: a }); };
+      const getAlpha = (o) => (o.style ? o.style.opacity : o.opacity == null ? 1 : o.opacity);
+      if (action === "remove") { this.scene = this.scene.filter((o) => o.tag !== tag); this.render(); return; }
+      if (action === "recolor") {
+        for (const o of targets) {
+          if (o.style) o.style = Object.assign({}, o.style, { color: colorArg || o.style.color, glowColor: colorArg || o.style.glowColor });
+          if (o.type === "text" && colorArg) o.color = colorArg;
+        }
+        this.render(); return;
+      }
+      if (action === "move") {
+        const d = { x: nums[0] || 0, y: nums[1] || 0, z: nums[2] || 0 };
+        const from = targets.map((o) => Object.assign({ x: 0, y: 0, z: 0 }, o.offset));
+        await this.tween(dur, (t) => targets.forEach((o, k) => { o.offset = { x: from[k].x + d.x * t, y: from[k].y + d.y * t, z: from[k].z + d.z * t }; }));
+        return;
+      }
+      if (action === "fade") {
+        const to = kv.to != null ? clamp(parseFloat(kv.to), 0, 1) : 0;
+        const from = targets.map(getAlpha);
+        await this.tween(dur, (t) => targets.forEach((o, k) => setAlpha(o, from[k] + (to - from[k]) * t)));
+        if (to === 0) this.scene = this.scene.filter((o) => o.tag !== tag);
+        return;
+      }
+      if (action === "pulse") {
+        const from = targets.map(getAlpha);
+        await this.tween(dur, (t) => targets.forEach((o, k) => setAlpha(o, from[k] * (0.25 + 0.75 * Math.abs(Math.cos(t * Math.PI * 3))))));
+        targets.forEach((o, k) => setAlpha(o, from[k]));
+        this.render();
+      }
+    }
+
+    async execCore(cmdStr) {
       const tokens = tokenize(cmdStr);
       if (!tokens.length) return;
       const name = tokens[0].toLowerCase();
@@ -1284,6 +1370,49 @@
       const style = createStyle(args.slice(idx));
 
       if (name === "clear") { this.clear(); return; }
+      if (name === "title") {
+        const t = stripQuotes(args[0] || "");
+        const c = args.slice(1).find((x) => isColor(x)) || "#22d3ee";
+        await this.exec('text 400 108 "' + t + '" ' + c + ' font="26px sans-serif" align=center');
+        return;
+      }
+      if (name === "block") {
+        // block cx cy size "label" color  - a labelled box centred on (cx, cy)
+        const cx = nums[0], cy = nums[1], sz = nums[2] || 50;
+        const label = args.slice(idx).find((x) => /^["']/.test(x));
+        const c = args.slice(idx).find((x) => isColor(x)) || "#f59e0b";
+        await this.exec("rect " + (cx - sz / 2) + " " + (cy - sz / 2) + " " + sz + " " + sz + " " + c + " fill=rgba(245,158,11,0.35) width=3");
+        if (label) await this.exec("text " + cx + " " + (cy + 6) + " " + label + " white font=\"" + Math.max(13, Math.round(sz / 3.2)) + "px sans-serif\" align=center");
+        return;
+      }
+      if (name === "ground") {
+        // ground x y length [color] [rough]  - a floor line with hatching underneath
+        const x = nums[0], y = nums[1], len = nums[2] || 300;
+        const c = args.slice(idx).find((v) => isColor(v)) || "#94a3b8";
+        const rough = args.slice(idx).some((v) => /^rough$/i.test(v));
+        await this.exec("line " + x + " " + y + " " + (x + len) + " " + y + " " + c + " width=4");
+        const n = Math.floor(len / 18);
+        for (let k = 0; k < n; k++) {
+          const hx = x + 6 + k * 18;
+          await this.exec("line " + hx + " " + (y + 1) + " " + (hx - 12) + " " + (y + 14) + " " + c + " width=" + (rough ? 3 : 1.5) + " opacity=" + (rough ? 0.9 : 0.5) + " 6x");
+        }
+        return;
+      }
+      if (name === "incline") {
+        // incline x y width height [color] [flip]  - right triangle, right angle at the bottom-left (bottom-right when flip)
+        const x = nums[0], y = nums[1], w = nums[2], h = nums[3];
+        const c = args.slice(idx).find((v) => isColor(v)) || "#38bdf8";
+        const flip = args.slice(idx).some((v) => /^flip$/i.test(v));
+        const A = flip ? [x + w, y - h] : [x, y - h];
+        const B = flip ? [x, y] : [x + w, y];
+        const R = flip ? [x + w, y] : [x, y];
+        await this.exec("polygon " + A.join(" ") + " " + B.join(" ") + " " + R.join(" ") + " " + c + " fill=rgba(56,189,248,0.12) width=4");
+        const th = Math.atan2(h, w);
+        const deg = Math.round(th * 180 / Math.PI);
+        if (flip) await this.exec("angle " + B[0] + " " + B[1] + " 34 " + (180 - deg) + " 180 " + '"' + deg + '°"' + " " + c);
+        else await this.exec("angle " + B[0] + " " + B[1] + " 34 180 " + (180 + deg) + " " + '"' + deg + '°"' + " " + c);
+        return;
+      }
       if (name === "wait") { if (this.instant) return; await new Promise((r) => setTimeout(r, ((nums[0] || 1) * 1000) / (this.speedMul || 1))); return; }
       if (await this.execExtra(name, args, style)) return;
       if (name === "line" || name === "arrow" || name === "doublearrow") {
@@ -1387,10 +1516,12 @@
     load(source) {
       const raw = parseScript(source);
       const parts = [];
+      // Lessons that already clear between ideas are left alone; auto-clear is only a fallback.
+      const hasClear = raw.some((p) => p.type === "draw" && /^clear\b/i.test(p.command));
       let drawn = 0;
       const countable = (c) => !/^(clear|wait|camera|background)\b/i.test(c);
       for (const part of raw) {
-        if (part.type === "speech" && this.autoClear && drawn >= this.autoClear) {
+        if (part.type === "speech" && this.autoClear && !hasClear && drawn >= this.autoClear) {
           parts.push({ type: "draw", command: "clear", auto: true });
           drawn = 0;
         }
@@ -1401,11 +1532,12 @@
         parts.push(part);
       }
       const steps = [{ start: 0, title: "" }];
+      let drawsInStep = 0;
       parts.forEach((p, i) => {
-        if (p.type === "draw" && /^clear\b/i.test(p.command) && i > 0) {
-          // Skip a clear that is directly followed by another clear or ends the script.
-          steps.push({ start: i, title: "" });
-        }
+        if (p.type === "draw" && /^clear\b/i.test(p.command)) {
+          // A clear only starts a new step once the current one has drawn something.
+          if (drawsInStep > 0) { steps.push({ start: i, title: "" }); drawsInStep = 0; }
+        } else if (p.type === "draw" && !/^(wait|camera|background)\b/i.test(p.command)) drawsInStep++;
       });
       steps.forEach((st, k) => {
         const end = k + 1 < steps.length ? steps[k + 1].start : parts.length;
